@@ -5,3 +5,6 @@ public/
 .env.*
 .vercel
 !.env.example
+
+.vercel
+.env*
