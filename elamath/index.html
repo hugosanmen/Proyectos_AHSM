@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ElaMath · Matemáticas para Ingeniería</title>
+  <meta name="description" content="Practica las matemáticas de Ingeniería (de Álgebra a Optimización) con ejercicios que cambian cada vez, retroalimentación inmediata y paso a paso. Funciona sin conexión.">
+  <meta name="theme-color" content="#002B49">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#app">Saltar al contenido</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>ElaMath</span>
+    </div>
+    <div class="topbar-right">
+      <span id="offline-badge" class="chip chip-offline" hidden>Sin conexión · todo sigue funcionando</span>
+      <button id="install-btn" class="btn btn-small" type="button" hidden>Instalar app</button>
+      <div id="hud" class="hud" aria-label="Tu estado"></div>
+    </div>
+  </header>
+
+  <p id="ios-hint" class="hint" hidden>Para instalarla en iPhone: toca Compartir y luego «Agregar a pantalla de inicio».</p>
+
+  <main id="app" tabindex="-1">
+    <noscript><p class="card">ElaMath necesita JavaScript para funcionar.</p></noscript>
+  </main>
+
+  <footer class="site-footer">
+    <p>ElaMath es un proyecto independiente y <strong>no está afiliado a la UNAM</strong>.</p>
+    <p>Úsala para estudiar y practicar con integridad académica: no sustituye tus clases ni sirve para resolver evaluaciones en curso.</p>
+    <p>Tu progreso de práctica se guarda solo en este dispositivo.</p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="pro-dialog" aria-labelledby="pro-title"></dialog>
+  <dialog id="levelup-dialog" aria-labelledby="levelup-title"></dialog>
+  <dialog id="account-dialog" aria-labelledby="account-title"></dialog>
+  <dialog id="tutor-dialog" class="dialog-wide" aria-labelledby="tutor-title"></dialog>
+  <dialog id="scan-dialog" class="dialog-wide" aria-labelledby="scan-title"></dialog>
+  <dialog id="report-dialog" aria-labelledby="report-title"></dialog>
+
+  <script src="vendor/katex/katex.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Respaldos (backups en zip)
+Respaldos/
+
+# Dependencias y secretos
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Sistema
+.DS_Store
+Thumbs.db
