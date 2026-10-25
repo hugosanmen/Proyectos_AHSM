@@ -1,6 +1,9 @@
 # Respaldos (backups en zip)
 Respaldos/
 
+# Notas locales (contienen una clave de API: nunca subir)
+Prompt ElaMath.txt
+
 # Dependencias y secretos
 node_modules/
 .env
