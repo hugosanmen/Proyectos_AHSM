@@ -86,7 +86,10 @@ export const routes = {
       return json(200, { reply, tutor: await quotaStatus(auth.uid, plan, deps) });
     } catch (err) {
       await refund(auth.uid, deps); // si falló la IA, no se le descuenta el mensaje al estudiante
-      if (err instanceof UpstreamError) return json(502, { code: 'upstream_error' });
+      if (err instanceof UpstreamError) {
+        console.error(`[tutor] upstream_error: ${err.message}`); // solo el motivo (p. ej. status_401), nunca claves
+        return json(502, { code: 'upstream_error' });
+      }
       if (err instanceof BadRequest) return json(400, { code: err.code });
       throw err;
     }
@@ -118,7 +121,10 @@ export const routes = {
       return json(200, { reply, tutor: await quotaStatus(auth.uid, plan, deps) });
     } catch (err) {
       await refund(auth.uid, deps);
-      if (err instanceof UpstreamError) return json(502, { code: 'upstream_error' });
+      if (err instanceof UpstreamError) {
+        console.error(`[scan] upstream_error: ${err.message}`);
+        return json(502, { code: 'upstream_error' });
+      }
       throw err;
     }
   },
