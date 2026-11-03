@@ -527,3 +527,20 @@ describe('bienvenida e inicio corto', () => {
     assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['1']);
   });
 });
+
+describe('repaso inteligente', () => {
+  const debil = (recent) => ({ recent });
+  it('sugiere los temas débiles y lleva a practicarlos', async () => {
+    const store = memStore({ ...L.defaultState(), xp: 20, stats: { answered: 9, correct: 2 }, topics: { Límites: debil([false, false, true]), Derivadas: debil([true, true, true]), Series: debil([false]) } });
+    const c = await mount({ store });
+    assert.match(c.q('#review-card').textContent, /Límites/);
+    assert.match(c.q('#review-card').textContent, /33% de aciertos en tus últimos 3 intentos/);
+    assert.doesNotMatch(c.q('#review-card').textContent, /Derivadas|Series/);
+    await c.click(c.q('button[aria-label="Repasar Límites"]'));
+    assert.equal(c.api._practice().label, 'Límites');
+  });
+  it('sin temas débiles no aparece', async () => {
+    const c = await mount({ store: memStore({ ...L.defaultState(), xp: 20, stats: { answered: 3, correct: 3 }, topics: { Límites: debil([true, true, true]) } }) });
+    assert.equal(c.q('#review-card'), null);
+  });
+});

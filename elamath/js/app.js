@@ -140,13 +140,14 @@ export async function startApp(root, opts = {}) {
     if (!hud) return;
     const info = L.levelInfo(state.xp);
     const streak = L.currentStreak(state.streak, today());
+    const plansLabel = backend.available && !billingOn() ? 'Beneficios' : 'Planes'; // sin cobro no hay planes que elegir
     const left = account?.tutor?.limit > 0 ? account.tutor.remaining : null; // la única cuota es la del tutor
     const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? '⭐ Pro' : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
     put(
       hud,
       h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nv. ${info.level}`),
       h('span', { class: 'chip', 'aria-label': `Racha de ${streak} días` }, `🔥 ${streak}`),
-      h('button', { class: 'chip chip-btn', type: 'button', id: 'plans-chip', onclick: () => openPro('info'), 'aria-label': left === null ? 'Ver planes' : `${left} mensajes del tutor hoy. Ver planes` }, left === null ? 'Planes' : [`${left}`, h('span', { class: 'chip-long' }, ' mensajes'), ' hoy']),
+      h('button', { class: 'chip chip-btn', type: 'button', id: 'plans-chip', onclick: () => openPro('info'), 'aria-label': left === null ? `Ver ${plansLabel.toLowerCase()}` : `${left} mensajes del tutor hoy. Ver ${plansLabel.toLowerCase()}` }, left === null ? plansLabel : [`${left}`, h('span', { class: 'chip-long' }, ' mensajes'), ' hoy']),
       backend.available &&
         h('button', { class: 'chip chip-btn', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, accountText),
     );
@@ -248,7 +249,7 @@ export async function startApp(root, opts = {}) {
     });
     const noResults = h('p', { class: 'muted', id: 'search-empty', hidden: true }, 'No encontramos esa materia o tema. Prueba con otra palabra.');
 
-    const planLabel = state.plan === 'pro' ? (backend.available ? `Mi plan: ${planName()}` : 'Mi plan: Pro (demo)') : 'Ver plan Pro';
+    const planLabel = state.plan === 'pro' ? (backend.available ? `Mi plan: ${planName()}` : 'Mi plan: Pro (demo)') : backend.available && !billingOn() ? 'Qué incluye tu cuenta gratis' : 'Ver plan Pro';
     const showPlanBtn = !(backend.available && account && !billingOn()); // sin cobro no hay plan que mostrar
     const footer = h(
       'div',
@@ -258,8 +259,33 @@ export async function startApp(root, opts = {}) {
       h('button', { class: 'btn btn-ghost danger', type: 'button', onclick: resetProgress }, 'Reiniciar progreso'),
     );
 
-    root.replaceChildren(welcoming ? welcomeCard() : hero, tools, noResults, ...sections, footer);
+    root.replaceChildren(welcoming ? welcomeCard() : hero, welcoming ? null : reviewCard(L.weakTopics(state.topics)), tools, noResults, ...sections, footer);
     if (ui.search) applySearch(ui.search);
+  }
+
+  function reviewCard(weak) {
+    const items = weak.flatMap((w) => {
+      const subject = subjects.find((s) => !s.mixed && s.topics.includes(w.topic));
+      return subject ? [{ ...w, subject }] : [];
+    });
+    if (!items.length) return null;
+    return h(
+      'section',
+      { class: 'card weak-card', id: 'review-card', 'aria-labelledby': 'review-title' },
+      h('h2', { id: 'review-title' }, 'Te conviene repasar'),
+      h(
+        'ul',
+        { class: 'topics' },
+        items.map((w) =>
+          h(
+            'li',
+            { class: 'topic' },
+            h('div', { class: 'topic-main' }, h('span', { class: 'topic-name' }, w.topic), h('span', { class: 'muted small' }, `${Math.round(w.ratio * 100)}% de aciertos en tus últimos ${w.attempts} intentos`)),
+            h('button', { class: 'btn', type: 'button', 'aria-label': `Repasar ${w.topic}`, onclick: () => startPractice(w.subject, w.topic) }, 'Repasar'),
+          ),
+        ),
+      ),
+    );
   }
 
   function welcomeCard() {
@@ -498,7 +524,7 @@ export async function startApp(root, opts = {}) {
           { class: 'dialog-body' },
           h('h2', { id: 'pro-title' }, 'ElaMath en etapa de pruebas'),
           h('p', {}, account ? 'Tienes acceso completo y gratis mientras dura la etapa de pruebas:' : 'Entra con tu correo para usar todo gratis mientras dura la etapa de pruebas:'),
-          h('ul', { class: 'benefits' }, ['Peer Tutor con IA sobre cada ejercicio', 'Escáner: foto de tu procedimiento y retroalimentación', 'Exámenes simulados adaptativos', 'Reportar errores de ejercicios'].map((t) => h('li', {}, t))),
+          h('ul', { class: 'benefits' }, ['Peer Tutor con IA sobre cada ejercicio', 'Escáner: foto de tu procedimiento y retroalimentación', 'Exámenes simulados adaptativos'].map((t) => h('li', {}, t))),
           h('p', { class: 'muted small' }, 'Avisaremos con tiempo antes de que algo empiece a tener costo.'),
           h('div', { class: 'actions' }, account ? null : h('button', { class: 'btn btn-primary', type: 'button', id: 'pro-login', onclick: () => { closeDialog(dlg); openAccount(); } }, 'Entrar con mi correo'), h('button', { class: 'btn btn-ghost', type: 'button', id: 'close-pro', onclick: () => closeDialog(dlg) }, 'Cerrar')),
         ),
@@ -1244,6 +1270,7 @@ export async function startApp(root, opts = {}) {
         h('p', { class: 'muted' }, `${g.correct} de ${g.total} correctas${g.answered < g.total ? ` · ${g.total - g.answered} sin contestar` : ''} · +${result.xpGained} XP`),
         result.quietLevel ? h('p', { class: 'muted small', id: 'exam-level' }, `Con la práctica de hoy llegaste al Nivel ${result.quietLevel} · ${L.LEVEL_TITLES[result.quietLevel - 1]}.`) : null,
       ),
+      reviewCard(L.weakTopics(state.topics, { only: exam.items.map((i) => i.ex.topic) })),
       h('h2', { class: 'section-title' }, 'Revisión'),
       review,
       h(

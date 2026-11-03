@@ -270,6 +270,8 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 @media (max-width: 420px){
   .brand span{display:none}
 }
+.weak-card{margin-top:.8rem;border-left:6px solid var(--bad)}
+.weak-card .topics{margin:0}
 .home-tools{display:grid;grid-template-columns:1fr minmax(0,auto);gap:.5rem;margin:1rem 0 0}
 .home-tools input,.home-tools select{font:inherit;min-height:44px;min-width:0;padding:.4rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text)}
 #continue-btn{margin-top:.5rem}

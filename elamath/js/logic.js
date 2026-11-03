@@ -42,6 +42,20 @@ export const masteryRatio = (recent) => (recent.length ? recent.filter(Boolean).
 export const masteryShown = (recent) => recent.filter(Boolean).length / Math.max(recent.length, MASTERY_MIN_ATTEMPTS);
 export const isMastered = (recent) => recent.length >= MASTERY_MIN_ATTEMPTS && masteryRatio(recent) >= MASTERY_THRESHOLD;
 
+// ── Repaso inteligente ──────────────────────────────────────────
+export const REVIEW_MIN_ATTEMPTS = 3;
+export const REVIEW_BELOW = 0.7;
+
+/** Temas para repasar: al menos 3 intentos recientes y menos de 70 % de aciertos; primero los más débiles. */
+export function weakTopics(topics, { only = null, limit = 3 } = {}) {
+  return Object.entries(topics ?? {})
+    .filter(([topic]) => !only || only.includes(topic))
+    .map(([topic, t]) => ({ topic, attempts: t.recent?.length ?? 0, ratio: masteryRatio(t.recent ?? []) }))
+    .filter((t) => t.attempts >= REVIEW_MIN_ATTEMPTS && t.ratio < REVIEW_BELOW)
+    .sort((a, b) => a.ratio - b.ratio || b.attempts - a.attempts)
+    .slice(0, limit);
+}
+
 // ── Racha (días consecutivos practicando) ───────────────────────
 const toUtcDay = (s) => {
   const [y, m, d] = s.split('-').map(Number);

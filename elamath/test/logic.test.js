@@ -163,3 +163,17 @@ describe('preferencias de inicio', () => {
     assert.deepEqual([mal.homeLevel, mal.welcomed, mal.lastPractice], [null, false, null]);
   });
 });
+
+describe('temas para repasar', () => {
+  const t = (...r) => ({ recent: r });
+  it('exige 3 intentos, menos de 70 % y ordena del más débil al menos débil', () => {
+    const topics = { A: t(true, true, false), B: t(false, false, false), C: t(false, false), D: t(true, true, true), E: t(true, false, false) };
+    assert.deepEqual(L.weakTopics(topics).map((x) => x.topic), ['B', 'E', 'A']);
+  });
+  it('limita la lista y puede filtrar por temas', () => {
+    const topics = { A: t(false, false, false), B: t(false, false, false), C: t(false, false, false), D: t(false, false, false) };
+    assert.equal(L.weakTopics(topics).length, 3);
+    assert.deepEqual(L.weakTopics(topics, { only: ['D'] }).map((x) => x.topic), ['D']);
+    assert.deepEqual(L.weakTopics(null), []);
+  });
+});
