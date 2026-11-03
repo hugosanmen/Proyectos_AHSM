@@ -458,6 +458,12 @@ export const templatesN4 = [
       const det = 4 * a * b - c * c;
       const verdict = det < 0 ? 'punto silla' : a > 0 ? 'mínimo local' : 'máximo local';
       const options = ['mínimo local', 'máximo local', 'punto silla', 'no se puede determinar'];
+      const why = {
+        'mínimo local': 'Un mínimo pide det H > 0 y f_xx > 0. Revisa ambos signos.',
+        'máximo local': 'Un máximo pide det H > 0 y f_xx < 0. Revisa ambos signos.',
+        'punto silla': 'Un punto silla pide det H < 0. Revisa el determinante.',
+        'no se puede determinar': 'Sí se puede: la prueba solo falla cuando det H = 0.',
+      };
       const tex = (t) => `\\text{${t}}`;
       return {
         params: { a, b, c },
@@ -467,7 +473,7 @@ export const templatesN4 = [
           { latex: `H=${'\\begin{pmatrix}'}${2 * a} & ${c} \\\\ ${c} & ${2 * b}${'\\end{pmatrix}'},\\quad \\det H=${det}`, note: 'Hessiana: segundas derivadas. El determinante es 4ab − c².' },
           { latex: tex(verdict), note: 'det < 0: silla. det > 0: mínimo si f_xx > 0, máximo si f_xx < 0.' },
         ],
-        distractors: options.filter((o) => o !== verdict).map((o) => ({ latex: tex(o), feedback: 'Revisa el signo de det H = 4ab − c² y de f_xx = 2a.' })),
+        distractors: options.filter((o) => o !== verdict).map((o) => ({ latex: tex(o), feedback: why[o] })),
       };
     },
   },

@@ -7,6 +7,7 @@ import { templatesN3 } from './templates-n3.js';
 import { templatesN4 } from './templates-n4.js';
 import { templatesN5 } from './templates-n5.js';
 import { createRng, shuffle } from './utils.js';
+import { IDEAS } from './ideas.js';
 
 /** Plantillas de Cálculo Diferencial (las de la primera versión). */
 export { baseTemplates };
@@ -23,7 +24,7 @@ export function generateExercise(id, seed) {
   const t = getTemplate(id);
   if (!t) throw new Error(`Plantilla desconocida: ${id}`);
   const ex = t.generate(createRng(seed));
-  return { templateId: t.id, topic: t.topic, difficulty: t.difficulty, seed, ...ex };
+  return { templateId: t.id, topic: t.topic, difficulty: t.difficulty, seed, idea: IDEAS[t.id], ...ex };
 }
 
 /** Serie de ejercicios variados, filtrable por tema y dificultad máxima. */

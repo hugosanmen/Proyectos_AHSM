@@ -270,6 +270,7 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 @media (max-width: 420px){
   .brand span{display:none}
 }
+.idea{margin:.5rem 0 0;font-size:.95rem}
 .weak-card{margin-top:.8rem;border-left:6px solid var(--bad)}
 .weak-card .topics{margin:0}
 .home-tools{display:grid;grid-template-columns:1fr minmax(0,auto);gap:.5rem;margin:1rem 0 0}

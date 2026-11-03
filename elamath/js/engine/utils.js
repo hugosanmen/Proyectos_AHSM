@@ -102,7 +102,7 @@ export function uniqueDistractors(correctLatex, candidates, n = 3) {
 export function numericDistractors(correct, specifics, n = 3) {
   const pad = [1, -1, 2, -2].map((k) => ({
     latex: new Fraction(correct.n + k * correct.d, correct.d).toLatex(),
-    feedback: 'Revisa la aritmética del último paso.',
+    feedback: `Tu respuesta queda ${Math.abs(k)} por ${k > 0 ? 'encima' : 'debajo'} del resultado: revisa signos y la cuenta final.`,
   }));
   return uniqueDistractors(correct.toLatex(), [...specifics, ...pad], n);
 }

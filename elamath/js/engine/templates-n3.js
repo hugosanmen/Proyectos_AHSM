@@ -368,7 +368,7 @@ export const templatesN3 = [
           { latex: 'i^{1}=i,\\; i^{2}=-1,\\; i^{3}=-i,\\; i^{4}=1', note: 'Las potencias de i se repiten en ciclos de 4.' },
           { latex: `${n} = 4\\cdot ${Math.floor(n / 4)} + ${r}\\;\\Rightarrow\\; i^{${n}} = (i^{4})^{${Math.floor(n / 4)}}\\, i^{${r}} = ${ansLatex}`, note: 'Divide el exponente entre 4: solo importa el residuo.' },
         ],
-        distractors: forms.filter((f) => f !== ansLatex).map((f) => ({ latex: f, feedback: `Divide ${n} entre 4 y mira el residuo (${r}): las potencias se repiten cada 4.` })),
+        distractors: forms.filter((f) => f !== ansLatex).map((f) => ({ latex: f, feedback: `Ese valor corresponde a residuo ${forms.indexOf(f)}, pero ${n} entre 4 deja residuo ${r}.` })),
       };
     },
   },

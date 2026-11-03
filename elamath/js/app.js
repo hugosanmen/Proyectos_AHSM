@@ -456,6 +456,8 @@ export async function startApp(root, opts = {}) {
     go('practice');
   }
 
+  const ideaLine = (ex) => (ex.idea ? h('p', { class: 'idea' }, h('strong', {}, 'Idea clave: '), ex.idea) : null);
+
   function renderPractice() {
     const { ex, answered } = practice;
     const dots = '●'.repeat(ex.difficulty) + '○'.repeat(5 - ex.difficulty);
@@ -484,8 +486,8 @@ export async function startApp(root, opts = {}) {
       const r = practice.result;
       const picked = ex.options[practice.picked];
       feedback = r.correct
-        ? h('div', { class: 'feedback ok', id: 'feedback', role: 'status', tabindex: '-1' }, h('strong', {}, `¡Va! +${r.xpGained} XP`), r.helped ? h('span', {}, ' (con ayuda vale la mitad)') : null)
-        : h('div', { class: 'feedback bad', id: 'feedback', role: 'status', tabindex: '-1' }, h('strong', {}, 'Mmm, esa no era. '), h('span', {}, picked.feedback), h('span', {}, ' La respuesta correcta quedó marcada.'));
+        ? h('div', { class: 'feedback ok', id: 'feedback', role: 'status', tabindex: '-1' }, h('strong', {}, `¡Va! +${r.xpGained} XP`), r.helped ? h('span', {}, ' (con ayuda vale la mitad)') : null, ideaLine(ex))
+        : h('div', { class: 'feedback bad', id: 'feedback', role: 'status', tabindex: '-1' }, h('strong', {}, 'Mmm, esa no era. '), h('span', {}, picked.feedback), h('span', {}, ' La respuesta correcta quedó marcada.'), ideaLine(ex));
     }
 
     const explainBtn = practice.explained
@@ -1301,6 +1303,7 @@ export async function startApp(root, opts = {}) {
         it.ex.statement.latex ? h('div', { class: 'q-math' }, math(it.ex.statement.latex, { display: true })) : null,
         h('p', { class: 'small' }, 'Tu respuesta: ', math(it.ex.options[it.picked].latex)),
         it.correct ? null : h('p', { class: 'small' }, 'Correcta: ', math(it.ex.options.find((o) => o.correct).latex)),
+        ideaLine(it.ex),
         h('ol', { class: 'steps' }, it.ex.steps.map((st) => h('li', {}, h('div', { class: 'step-math' }, math(st.latex, { display: true })), h('p', { class: 'step-note' }, st.note)))),
       ),
     );

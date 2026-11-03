@@ -544,3 +544,17 @@ describe('repaso inteligente', () => {
     assert.equal(c.q('#review-card'), null);
   });
 });
+
+describe('idea clave', () => {
+  it('aparece solo después de responder, acierte o no', async () => {
+    const c = await mount();
+    const p = await startMixed(c);
+    assert.equal(c.q('.idea'), null);
+    await c.click(c.qa('button.option')[correctIdx(p)]);
+    assert.match(c.q('#feedback .idea').textContent, /Idea clave: /);
+    await c.click(c.q('#next-btn'));
+    const q = c.api._practice();
+    await c.click(c.qa('button.option')[wrongIdx(q)]);
+    assert.ok(c.q('#feedback .idea').textContent.includes(q.ex.idea));
+  });
+});

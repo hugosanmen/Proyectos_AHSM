@@ -10,6 +10,8 @@ import { close, compileLatex, stripC, POINTS } from './oracles/common.js';
 import { ORACLES_N1 } from './oracles/n1.js';
 import { ORACLES_N2 } from './oracles/n2.js';
 import { ORACLES_N3 } from './oracles/n3.js';
+import { IDEAS } from '../js/engine/ideas.js';
+import { Fraction, numericDistractors } from '../js/engine/utils.js';
 import { ORACLES_N4 } from './oracles/n4.js';
 import { ORACLES_N5 } from './oracles/n5.js';
 
@@ -147,5 +149,34 @@ describe('redacción de enunciados', () => {
     forEachSeed('ma-geometrica', (ex) => assert.doesNotMatch(ex.statement.latex, /infty\} 1/));
     forEachSeed('ss-estabilidad', (ex) => assert.doesNotMatch(ex.statement.latex, /[{)]\(s\)/));
     forEachSeed('pe-binomial', (ex) => assert.doesNotMatch(ex.statement.text, /\b1 éxitos/));
+  });
+});
+
+describe('retroalimentación', () => {
+  it('cada plantilla tiene una idea clave breve y no sobran ideas', () => {
+    for (const t of templates) {
+      const { idea } = generateExercise(t.id, 11);
+      assert.ok(typeof idea === 'string' && idea.length >= 20 && idea.length <= 130, `${t.id}: ${idea}`);
+    }
+    assert.deepEqual(Object.keys(IDEAS).sort(), templates.map((t) => t.id).sort());
+  });
+  it('todas las opciones explican su error sin mensajes genéricos', () => {
+    for (const t of templates) {
+      forEachSeed(t.id, (ex) => {
+        for (const d of ex.distractors) {
+          assert.ok(d.feedback?.length > 5);
+          assert.doesNotMatch(d.feedback, /Revisa la aritmética/);
+        }
+        assert.equal(new Set(ex.distractors.map((d) => d.feedback)).size, ex.distractors.length, 'cada opción explica su propio error');
+      });
+    }
+  });
+  it('el mensaje de cercanía dice la distancia real al resultado', () => {
+    const [arriba] = numericDistractors(new Fraction(5), [], 1);
+    assert.equal(arriba.latex, '6');
+    assert.match(arriba.feedback, /1 por encima/);
+    const pad = numericDistractors(new Fraction(5), [], 4);
+    assert.deepEqual(pad.map((d) => d.latex), ['6', '4', '7', '3']);
+    assert.equal(new Set(pad.map((d) => d.feedback)).size, 4);
   });
 });
