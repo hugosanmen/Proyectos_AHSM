@@ -96,6 +96,7 @@ export async function startApp(root, opts = {}) {
   const prepare = opts.prepareImage ?? prepareImage;
   const nowMs = () => now().getTime();
   const ui = {
+    search: '',
     account: { busy: false, sent: false, status: '', email: '', devLink: null },
     report: { busy: false, done: false, status: '', offline: false },
     promo: { busy: false, status: '', ok: false, code: '' },
@@ -152,6 +153,48 @@ export async function startApp(root, opts = {}) {
   }
 
   // ── Navegación ────────────────────────────────────────────────
+  const EXAM_ROUTE = '#/examen';
+  const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const subjects = CURRICULUM.flatMap((lvl) => lvl.subjects.map((s) => ({ ...s, level: lvl.level }))).filter((s) => s.available);
+  const practiceRoute = (subject, topic) => `#/practica/${subject.id}${topic ? `/${slug(topic)}` : ''}`;
+
+  /** Rutas con # : funcionan sin configurar el servidor y también sin conexión. */
+  function setRoute(route, { replace = false } = {}) {
+    const loc = window.location;
+    if (!loc || (loc.hash ?? '') === route) return;
+    try {
+      window.history?.[replace ? 'replaceState' : 'pushState'](null, '', `${loc.pathname}${loc.search}${route}`);
+    } catch {
+      /* no crítico: la app sigue funcionando sin cambiar la URL */
+    }
+  }
+
+  /** Lleva la pantalla a lo que indique la URL (botones Atrás/Adelante o un enlace directo). */
+  function applyRoute() {
+    const hash = window.location?.hash ?? '';
+    document.querySelectorAll('dialog[open]').forEach((d) => closeDialog(d));
+    if (view === 'exam' && examView && !examView.result && hash !== EXAM_ROUTE) {
+      if (!globalThis.confirm?.('¿Abandonar el examen? No se guardará ningún resultado.')) return setRoute(EXAM_ROUTE);
+      discardExam();
+    }
+    if (hash === EXAM_ROUTE) {
+      if (examView) return go('exam');
+      return goHome({ replace: true });
+    }
+    if (examView?.result) examView = null;
+    const m = /^#\/practica\/([^/]+)(?:\/([^/]+))?$/.exec(hash);
+    const subject = m && subjects.find((s) => s.id === m[1]);
+    const topic = subject && m[2] ? subject.topics.find((t) => slug(t) === m[2]) : null;
+    if (!subject || (m[2] && !topic)) return hash ? goHome({ replace: true }) : go('home');
+    if (practice?.route === hash) return go('practice');
+    startPractice(subject, topic, { push: false });
+  }
+
+  function goHome(opts) {
+    setRoute('', opts);
+    go('home');
+  }
+
   function go(name) {
     view = name;
     render();
@@ -164,12 +207,14 @@ export async function startApp(root, opts = {}) {
     if (view === 'exam' && examView) renderExam();
     else if (view === 'practice' && practice) renderPractice();
     else renderHome();
+    document.title = view === 'exam' && examView ? 'Examen simulado · ElaMath' : view === 'practice' && practice ? `${practice.label} · ElaMath` : 'ElaMath · Matemáticas para Ingeniería';
     renderHud();
   }
 
   // ── Inicio ────────────────────────────────────────────────────
   function renderHome() {
     const info = L.levelInfo(state.xp);
+    const lastTarget = lastPracticeTarget();
     const hero = h(
       'section',
       { class: 'card hero', 'aria-labelledby': 'hero-title' },
@@ -179,18 +224,29 @@ export async function startApp(root, opts = {}) {
       h('p', { class: 'muted' }, info.isMax ? 'Nivel máximo alcanzado.' : `${info.xpInto} / ${info.xpNeeded} XP para el siguiente nivel`),
       h('p', { class: 'muted small' }, `${count(state.stats.correct, 'acierto')} de ${count(state.stats.answered, 'intento')}`),
       state.exams.length ? h('p', { class: 'muted small', id: 'last-exam' }, `Último examen simulado: ${state.exams.at(-1).score.toFixed(1)} / 10 (${state.exams.at(-1).label})`) : null,
+      lastTarget ? h('button', { class: 'btn btn-primary', type: 'button', id: 'continue-btn', onclick: () => startPractice(lastTarget.subject, lastTarget.topic) }, `Continuar: ${lastTarget.topic ?? lastTarget.subject.name}`) : null,
     );
+
+    const welcoming = !state.welcomed && state.stats.answered === 0 && state.xp === 0;
+    const last = lastPracticeTarget();
+    const openLevel = state.homeLevel ?? last?.subject.level ?? 1;
+    const levelSelect = h('select', { id: 'home-level', 'aria-label': 'Mi semestre', onchange: () => setHomeLevel(Number(levelSelect.value)) }, CURRICULUM.map((lvl) => h('option', { value: lvl.level }, `${lvl.semesters} (Nivel ${lvl.level})`)));
+    levelSelect.value = String(openLevel);
+    const search = h('input', { type: 'search', id: 'home-search', placeholder: 'Buscar materia o tema', 'aria-label': 'Buscar materia o tema', autocomplete: 'off', oninput: () => applySearch(search.value) });
+    search.value = ui.search;
+    const tools = h('div', { class: 'home-tools' }, search, levelSelect);
 
     const sections = CURRICULUM.map((lvl) => {
       const cards = lvl.subjects.map(subjectCard);
       const nTopics = lvl.subjects.filter((x) => x.available).length;
       return h(
         'details',
-        { class: 'level', open: true },
+        { class: 'level', 'data-level': lvl.level, open: lvl.level === openLevel },
         h('summary', {}, h('span', { class: 'level-title' }, `Nivel ${lvl.level} · ${lvl.name}`), h('span', { class: 'muted small' }, ` ${lvl.semesters} · ${nTopics} ${nTopics === 1 ? 'materia' : 'materias'}`)),
         h('div', { class: 'grid' }, cards),
       );
     });
+    const noResults = h('p', { class: 'muted', id: 'search-empty', hidden: true }, 'No encontramos esa materia o tema. Prueba con otra palabra.');
 
     const planLabel = state.plan === 'pro' ? (backend.available ? `Mi plan: ${planName()}` : 'Mi plan: Pro (demo)') : 'Ver plan Pro';
     const showPlanBtn = !(backend.available && account && !billingOn()); // sin cobro no hay plan que mostrar
@@ -202,7 +258,67 @@ export async function startApp(root, opts = {}) {
       h('button', { class: 'btn btn-ghost danger', type: 'button', onclick: resetProgress }, 'Reiniciar progreso'),
     );
 
-    root.replaceChildren(hero, ...sections, footer);
+    root.replaceChildren(welcoming ? welcomeCard() : hero, tools, noResults, ...sections, footer);
+    if (ui.search) applySearch(ui.search);
+  }
+
+  function welcomeCard() {
+    return h(
+      'section',
+      { class: 'card hero welcome', 'aria-labelledby': 'hero-title' },
+      h('h1', { id: 'hero-title' }, 'Bienvenido a ElaMath'),
+      h('p', {}, 'Practica las matemáticas de Ingeniería con ejercicios que cambian cada vez, paso a paso incluido. Funciona sin conexión.'),
+      h('p', { class: 'welcome-ask' }, h('strong', {}, '¿En qué semestre vas?'), ' Te llevamos a tu primer ejercicio.'),
+      h('div', { class: 'welcome-levels' }, CURRICULUM.map((lvl) => h('button', { class: 'btn', type: 'button', id: `welcome-level-${lvl.level}`, onclick: () => chooseLevel(lvl.level) }, lvl.semesters))),
+      h('button', { class: 'btn btn-ghost', type: 'button', id: 'welcome-skip', onclick: () => { state = { ...state, welcomed: true }; persist(); render(); } }, 'Prefiero ver las materias'),
+    );
+  }
+
+  function chooseLevel(level) {
+    state = { ...state, welcomed: true, homeLevel: level };
+    persist();
+    startPractice(subjects.find((s) => s.level === level));
+  }
+
+  function setHomeLevel(level) {
+    state = { ...state, homeLevel: level };
+    persist();
+    render();
+  }
+
+  function lastPracticeTarget() {
+    const saved = state.lastPractice;
+    const subject = saved && subjects.find((s) => s.id === saved.subjectId);
+    if (!subject || (saved.topic && !subject.topics.includes(saved.topic))) return null;
+    return { subject, topic: saved.topic };
+  }
+
+  /** Filtra sin redibujar, para no perder el foco del buscador. */
+  function applySearch(text) {
+    ui.search = text;
+    const fold = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const q = fold(text.trim());
+    let found = 0;
+    for (const level of root.querySelectorAll('details.level')) {
+      let inLevel = 0;
+      for (const card of level.querySelectorAll('article.subject')) {
+        const byName = fold(card.querySelector('h3')?.textContent ?? '').includes(q);
+        let rows = 0;
+        for (const li of card.querySelectorAll('.topic')) {
+          const hit = byName || fold(li.querySelector('.topic-name').textContent).includes(q);
+          li.hidden = !hit;
+          if (hit) rows++;
+        }
+        card.hidden = rows === 0;
+        if (rows) inLevel++;
+      }
+      level.hidden = inLevel === 0;
+      if (q) level.open = inLevel > 0;
+      else level.open = Number(level.dataset.level) === (state.homeLevel ?? lastPracticeTarget()?.subject.level ?? 1);
+      found += inLevel;
+    }
+    const empty = root.querySelector('#search-empty');
+    if (empty) empty.hidden = found > 0;
   }
 
   function subjectCard(subject) {
@@ -219,7 +335,7 @@ export async function startApp(root, opts = {}) {
         { class: 'topic' },
         h('div', { class: 'topic-main' }, h('span', { class: 'topic-name' }, topic), h('span', { class: 'muted small' }, label)),
         progressBar(ratio, `Dominio de ${topic}`),
-        h('button', { class: 'btn', type: 'button', 'aria-label': `Practicar ${topic}`, onclick: () => startPractice([topic], topic, subject.minDifficulty) }, 'Practicar'),
+        h('button', { class: 'btn', type: 'button', 'aria-label': `Practicar ${topic}`, onclick: () => startPractice(subject, topic) }, 'Practicar'),
       );
     });
     return h(
@@ -231,7 +347,7 @@ export async function startApp(root, opts = {}) {
       h(
         'div',
         { class: 'actions' },
-        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => startPractice(subject.topics, subject.name, subject.minDifficulty) }, 'Práctica mixta'),
+        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => startPractice(subject) }, 'Práctica mixta'),
         h('button', { class: 'btn', type: 'button', 'data-exam': subject.name, onclick: () => startExamFlow(subject.topics, subject.name, subject.minDifficulty) }, '📝 Examen simulado'),
       ),
     );
@@ -242,12 +358,16 @@ export async function startApp(root, opts = {}) {
     state = L.defaultState();
     syncPlan();
     persist();
-    go('home');
+    goHome();
   }
 
   // ── Práctica ──────────────────────────────────────────────────
-  function startPractice(topics, label, minDifficulty = 0) {
-    practice = { topics, label, minDifficulty, recent: [], ex: null, answered: false, picked: null, explained: false, result: null, chat: null };
+  function startPractice(subject, topic = null, { push = true } = {}) {
+    const route = practiceRoute(subject, topic);
+    if (push) setRoute(route);
+    state = { ...state, welcomed: true, lastPractice: { subjectId: subject.id, topic } };
+    persist();
+    practice = { route, topics: topic ? [topic] : subject.topics, label: topic ?? subject.name, minDifficulty: subject.minDifficulty, recent: [], ex: null, answered: false, picked: null, explained: false, result: null, chat: null };
     nextExercise();
   }
 
@@ -317,7 +437,7 @@ export async function startApp(root, opts = {}) {
 
     put(
       root,
-      h('div', { class: 'practice-head' }, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => go('home') }, '← Materias'), h('p', { class: 'eyebrow' }, practice.label)),
+      h('div', { class: 'practice-head' }, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => goHome() }, '← Materias'), h('p', { class: 'eyebrow' }, practice.label)),
       h(
         'section',
         { class: 'card question', 'aria-labelledby': 'q-title' },
@@ -980,6 +1100,7 @@ export async function startApp(root, opts = {}) {
     saveExam();
     stopExamTimer();
     examTimer = globalThis.setInterval(tickExam, 1000);
+    setRoute(EXAM_ROUTE);
     go('exam');
   }
 
@@ -1000,6 +1121,7 @@ export async function startApp(root, opts = {}) {
     if (!saved) return;
     examView = { ...saved, result: null, pool: examPool(saved.exam.topics, saved.minDifficulty) };
     view = 'exam';
+    setRoute(EXAM_ROUTE, { replace: true });
     if (X.isExpired(saved.exam, nowMs())) return finishExamNow('time');
     if (!examView.item) examNext();
     if (examView.result) return;
@@ -1052,11 +1174,15 @@ export async function startApp(root, opts = {}) {
 
   function leaveExam() {
     if (examView && !examView.result && !globalThis.confirm?.('¿Abandonar el examen? No se guardará ningún resultado.')) return;
+    discardExam();
+    goHome();
+  }
+
+  function discardExam() {
     stopExamTimer();
     examView = null;
     state = { ...state, activeExam: null };
     persist();
-    go('home');
   }
 
   function renderExam() {
@@ -1124,7 +1250,7 @@ export async function startApp(root, opts = {}) {
         'div',
         { class: 'actions' },
         h('button', { class: 'btn btn-primary', type: 'button', id: 'exam-again', onclick: () => startExamFlow(exam.topics, exam.label, examView.minDifficulty) }, 'Otro examen'),
-        h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-home', onclick: () => { examView = null; go('home'); } }, '← Materias'),
+        h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-home', onclick: () => { examView = null; goHome(); } }, '← Materias'),
       ),
     );
   }
@@ -1204,8 +1330,10 @@ export async function startApp(root, opts = {}) {
   }
   const ready = initBackend();
 
+  window.addEventListener?.('popstate', applyRoute);
   resumeExam();
-  render();
+  if (!examView && window.location?.hash) applyRoute();
+  else render();
 
   return {
     getState: () => state,
@@ -1221,6 +1349,7 @@ export async function startApp(root, opts = {}) {
       stopExamTimer();
       document.removeEventListener('keydown', onKey);
       window.removeEventListener?.('online', onOnline);
+      window.removeEventListener?.('popstate', applyRoute);
     },
   };
 }

@@ -154,3 +154,12 @@ describe('estado anterior', () => {
     assert.equal('credits' in s, false);
   });
 });
+
+describe('preferencias de inicio', () => {
+  it('valida semestre y última práctica guardados', () => {
+    const ok = L.normalizeState({ ...L.defaultState(), homeLevel: 3, welcomed: true, lastPractice: { subjectId: 'algebra', topic: null } });
+    assert.deepEqual([ok.homeLevel, ok.welcomed, ok.lastPractice], [3, true, { subjectId: 'algebra', topic: null }]);
+    const mal = L.normalizeState({ ...L.defaultState(), homeLevel: 9, welcomed: 'si', lastPractice: { subjectId: 7 } });
+    assert.deepEqual([mal.homeLevel, mal.welcomed, mal.lastPractice], [null, false, null]);
+  });
+});

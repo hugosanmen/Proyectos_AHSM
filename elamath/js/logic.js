@@ -101,6 +101,9 @@ export const defaultState = () => ({
   stats: { answered: 0, correct: 0 },
   exams: [], // historial de exámenes simulados (últimos 20)
   activeExam: null, // examen en curso, para retomarlo si se recarga la página
+  welcomed: false, // ya vio (o saltó) la bienvenida
+  homeLevel: null, // nivel 1 a 5 que se abre al iniciar
+  lastPractice: null, // { subjectId, topic } para «Continuar»
 });
 
 /** Mezcla lo guardado con los valores por defecto; descarta estados de versión desconocida. */
@@ -117,6 +120,9 @@ export function normalizeState(raw) {
     stats: { ...base.stats, ...(raw.stats ?? {}) },
     exams: normalizeExams(raw.exams),
     activeExam: normalizeActiveExam(raw.activeExam),
+    welcomed: raw.welcomed === true,
+    homeLevel: Number.isInteger(raw.homeLevel) && raw.homeLevel >= 1 && raw.homeLevel <= 5 ? raw.homeLevel : null,
+    lastPractice: typeof raw.lastPractice?.subjectId === 'string' ? { subjectId: raw.lastPractice.subjectId, topic: typeof raw.lastPractice.topic === 'string' ? raw.lastPractice.topic : null } : null,
   };
 }
 

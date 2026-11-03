@@ -44,8 +44,8 @@ afterEach(() => {
 });
 
 /** Monta la app sobre una copia limpia de index.html. */
-async function mount({ store = memStore(), seed = 7, confirm = true } = {}) {
-  const dom = new JSDOM(html, { url: 'https://elamath.test/', pretendToBeVisual: true });
+async function mount({ store = memStore(), seed = 7, confirm = true, url = 'https://elamath.test/' } = {}) {
+  const dom = new JSDOM(html, { url, pretendToBeVisual: true });
   const w = dom.window;
   w.scrollTo = () => {};
   w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
@@ -91,9 +91,9 @@ const wrongIdx = (p) => p.ex.options.findIndex((o) => !o.correct);
 describe('inicio', () => {
   it('muestra nivel, las 16 materias de los 5 niveles y acceso a planes', async () => {
     const c = await mount();
-    assert.match(c.q('h1').textContent, /Nivel 1 · Aspirante/);
+    assert.match(c.q('h1').textContent, /Bienvenido a ElaMath/);
     assert.equal(c.qa('details.level').length, 5, 'cinco niveles');
-    assert.equal(c.qa('details.level[open]').length, 5, 'todos los niveles visibles');
+    assert.equal(c.qa('details.level[open]').length, 1, 'solo el nivel del alumno abierto');
     assert.equal(c.qa('article.subject').length, 16);
     assert.equal(c.qa('.subject.disabled').length, 0, 'ninguna materia queda como «próximamente»');
     assert.match(c.q('#plans-chip').textContent, /Planes/);
@@ -433,5 +433,97 @@ describe('almacenamiento (db.js)', () => {
 
   it('datos corruptos o de otra versión no rompen el arranque', async () => {
     assert.deepEqual(L.normalizeState({ version: 0, xp: 'mucho' }), L.defaultState());
+  });
+});
+
+describe('rutas', () => {
+  const back = async (c) => {
+    c.w.history.back();
+    await new Promise((r) => c.w.addEventListener('popstate', () => setTimeout(r, 5), { once: true }));
+  };
+
+  it('cada vista tiene URL y Atrás/Adelante funcionan dentro de la app', async () => {
+    const c = await mount();
+    await startMixed(c);
+    assert.equal(c.w.location.hash, '#/practica/calculo-diferencial');
+    assert.match(c.doc.title, /Cálculo Diferencial/);
+    await back(c);
+    assert.ok(c.q('#home-search'), 'volvió al inicio');
+    assert.equal(c.w.location.hash, '');
+    c.w.history.forward();
+    await new Promise((r) => c.w.addEventListener('popstate', () => setTimeout(r, 5), { once: true }));
+    assert.ok(c.q('#q-title'), 'regresó al ejercicio');
+  });
+
+  it('un enlace directo abre el tema; uno inválido cae al inicio', async () => {
+    const c = await mount({ url: 'https://elamath.test/#/practica/calculo-diferencial/limites' });
+    assert.equal(c.api._practice().ex.topic, 'Límites');
+    const mal = await mount({ url: 'https://elamath.test/#/practica/no-existe' });
+    assert.ok(mal.q('#home-search'));
+    assert.equal(mal.w.location.hash, '');
+    const examen = await mount({ url: 'https://elamath.test/#/examen' });
+    assert.ok(examen.q('#home-search'));
+  });
+
+  it('Atrás durante un examen pide confirmar: cancelar lo mantiene, aceptar lo descarta', async () => {
+    const c = await mount({ confirm: false });
+    await c.click(c.q('[data-exam]'));
+    assert.equal(c.w.location.hash, '#/examen');
+    await back(c);
+    assert.ok(c.q('#exam-clock'), 'sigue en el examen');
+    assert.equal(c.w.location.hash, '#/examen');
+    assert.ok(c.api.getState().activeExam);
+    globalThis.confirm = () => true;
+    await back(c);
+    assert.equal(c.q('#exam-clock'), null);
+    assert.equal(c.api.getState().activeExam, null);
+  });
+});
+
+describe('bienvenida e inicio corto', () => {
+  it('elegir semestre lleva al primer ejercicio y luego abre ese nivel', async () => {
+    const c = await mount();
+    await c.click(c.q('#welcome-level-3'));
+    assert.ok(c.q('#q-title'));
+    assert.equal(c.w.location.hash, '#/practica/metodos-numericos');
+    const st = c.api.getState();
+    assert.deepEqual([st.welcomed, st.homeLevel], [true, 3]);
+    await c.click(c.byText('button', '← Materias'));
+    assert.equal(c.q('#welcome-skip'), null, 'la bienvenida no se repite');
+    assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['3']);
+    assert.match(c.q('#continue-btn').textContent, /Continuar: Métodos Numéricos/);
+    await c.click(c.q('#continue-btn'));
+    assert.equal(c.api._practice().label, 'Métodos Numéricos');
+  });
+
+  it('se puede saltar y cambiar de semestre; quien ya tiene progreso no la ve', async () => {
+    const c = await mount();
+    await c.click(c.q('#welcome-skip'));
+    assert.match(c.q('h1').textContent, /Nivel 1/);
+    const sel = c.q('#home-level');
+    sel.value = '4';
+    sel.dispatchEvent(new c.w.Event('change', { bubbles: true }));
+    assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['4']);
+    const viejo = await mount({ store: memStore({ ...L.defaultState(), xp: 50, stats: { answered: 5, correct: 3 } }) });
+    assert.equal(viejo.q('#welcome-skip'), null);
+  });
+
+  it('el buscador ignora acentos, abre coincidencias y avisa si no hay', async () => {
+    const c = await mount();
+    const search = c.q('#home-search');
+    const type = (v) => {
+      search.value = v;
+      search.dispatchEvent(new c.w.Event('input', { bubbles: true }));
+    };
+    type('calculo vec');
+    assert.deepEqual(c.qa('article.subject:not([hidden]) h3').map((e) => e.textContent), ['Cálculo Vectorial']);
+    assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['2']);
+    type('laplace');
+    assert.ok(c.qa('.topic:not([hidden])').every((li) => /Laplace/.test(li.textContent)));
+    type('zzz');
+    assert.equal(c.q('#search-empty').hidden, false);
+    type('');
+    assert.equal(c.qa('article.subject[hidden]').length, 0);
+    assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['1']);
   });
 });

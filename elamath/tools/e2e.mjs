@@ -147,6 +147,7 @@ try {
     offline = true;
     await ctx.setOffline(true);
     await page.reload();
+    await page.evaluate(() => { location.hash = ''; }); // la recarga conserva la ruta; se vuelve al inicio
     await page.waitForSelector('button[aria-label^="Practicar"]');
     await page.click('button[aria-label^="Practicar"]');
     await page.waitForSelector('.question .katex');
