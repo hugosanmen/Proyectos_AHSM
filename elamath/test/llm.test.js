@@ -117,7 +117,7 @@ describe('el tutor con Groq de punta a punta', () => {
     assert.equal(r.status, 200);
     assert.equal(ai.calls[0].init.headers.authorization, 'Bearer gsk_test');
     assert.doesNotMatch(JSON.stringify(r.body), /gsk_|groq|llama/i, 'la respuesta no expone clave, proveedor ni modelo');
-    const h = (await routes.health({}, deps)).body;
+    const h = (await routes.health({ headers: { authorization: `Bearer ${deps.config.adminToken}` } }, deps)).body;
     assert.deepEqual([h.tutor, h.provider], [true, 'groq']);
     assert.doesNotMatch(JSON.stringify(h), /gsk_/);
   });

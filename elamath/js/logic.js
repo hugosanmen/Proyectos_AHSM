@@ -99,6 +99,18 @@ export function normalizeExams(raw) {
     .slice(-EXAM_HISTORY);
 }
 
+/** Valida el examen en curso guardado; si algo no cuadra se descarta (null). */
+export function normalizeActiveExam(raw) {
+  const exercise = (ex) => Boolean(ex && Array.isArray(ex.options) && ex.options.length > 0 && ex.statement && typeof ex.topic === 'string');
+  const e = raw?.exam;
+  if (!e || e.finished || typeof e.label !== 'string' || !Array.isArray(e.topics) || !e.topics.length || !Array.isArray(e.items)) return null;
+  if (![e.startedAt, e.deadline, e.target].every(Number.isFinite) || !Number.isInteger(e.questions) || e.questions < 1) return null;
+  if (!e.items.every((i) => exercise(i?.ex) && Number.isInteger(i.picked) && typeof i.correct === 'boolean')) return null;
+  const item = raw.item ?? null;
+  if (item && (!exercise(item.ex) || item.picked !== null)) return null;
+  return { exam: e, item, minDifficulty: Number.isFinite(raw.minDifficulty) ? raw.minDifficulty : 0 };
+}
+
 export const defaultState = () => ({
   version: STATE_VERSION,
   xp: 0,
@@ -108,6 +120,7 @@ export const defaultState = () => ({
   topics: {}, // { [tema]: { recent: boolean[] } }
   stats: { answered: 0, correct: 0 },
   exams: [], // historial de exámenes simulados (últimos 20)
+  activeExam: null, // examen en curso, para retomarlo si se recarga la página
 });
 
 /** Mezcla lo guardado con los valores por defecto; descarta estados de versión desconocida. */
@@ -122,6 +135,7 @@ export function normalizeState(raw) {
     topics: raw.topics && typeof raw.topics === 'object' ? raw.topics : {},
     stats: { ...base.stats, ...(raw.stats ?? {}) },
     exams: normalizeExams(raw.exams),
+    activeExam: normalizeActiveExam(raw.activeExam),
   };
 }
 

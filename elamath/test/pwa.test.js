@@ -36,7 +36,7 @@ describe('index.html', () => {
     assert.match(html, /name="theme-color" content="#002B49"/);
     assert.match(html, /apple-touch-icon/);
     assert.match(html, /<main id="app"/);
-    assert.match(html, /no está afiliado a la UNAM/);
+    assert.match(html, /no está afiliado a ninguna institución educativa/);
   });
 
   it('carga KaTeX antes que el módulo de la app', () => {
@@ -71,6 +71,11 @@ describe('precaché', () => {
   it('sw.js está sincronizado con los archivos (corre `npm run build` si falla)', () => {
     const { sw } = computeBuild();
     assert.equal(read('sw.js'), sw);
+  });
+
+  it('no publica ni guarda en caché archivos ocultos como .env.example', () => {
+    assert.deepEqual(listAppFiles().filter((f) => f.split('/').some((p) => p.startsWith('.'))), []);
+    assert.doesNotMatch(read('sw.js'), /\.env/);
   });
 
   it('incluye todo lo que necesita la app para funcionar sin conexión', () => {

@@ -93,7 +93,7 @@ export const templatesN4 = [
         statement: { text: 'Calcula la transformada inversa de Laplace:', latex: `\\mathcal{L}^{-1}\\left\\{${F}\\right\\}` },
         answer: { latex: ans },
         steps: [
-          { latex: 'F(s)\;\\longleftrightarrow\; f(t)', note: 'Reconoce la forma en la tabla de transformadas.' },
+          { latex: 'F(s)\\;\\longleftrightarrow\\; f(t)', note: 'Reconoce la forma en la tabla de transformadas.' },
           { latex: `f(t)=${ans}`, note: 'Ajusta la constante que sobra para que coincida con la tabla.' },
         ],
         distractors: uniqueDistractors(ans, wrong.map(([latex, feedback]) => ({ latex, feedback }))),
@@ -142,7 +142,7 @@ export const templatesN4 = [
         answer: ansOf(fr(k)),
         steps: [
           { latex: `\\left|\\frac{a_{n+1}}{a_n}\\right| \\to \\frac{|${c === 0 ? 'x' : lin(c)}|}{${k}}`, note: 'El factor n/(n+1) o (n+1)/n tiende a 1; solo queda la razón entre potencias.' },
-          { latex: `\\frac{|${c === 0 ? 'x' : lin(c)}|}{${k}}<1\;\\Rightarrow\; R=${k}`, note: 'La serie converge cuando ese límite es menor que 1.' },
+          { latex: `\\frac{|${c === 0 ? 'x' : lin(c)}|}{${k}}<1\\;\\Rightarrow\\; R=${k}`, note: 'La serie converge cuando ese límite es menor que 1.' },
         ],
         distractors: numericDistractors(fr(k), compact([
           dFr(fr(1, k), 'Invertiste: |x|/k < 1 da |x| < k, no |x| < 1/k.'),
@@ -208,7 +208,7 @@ export const templatesN4 = [
         statement: { text: '¿Cuál es el periodo fundamental de la señal?', latex },
         answer: { latex: ansLatex, value: (T[0] * Math.PI) / T[1] },
         steps: variant === 'simple'
-          ? [{ latex: `\\sin(\\omega t)\;\\text{ tiene periodo }\; T=\\frac{2\\pi}{\\omega}`, note: 'El periodo es el tiempo en que el argumento avanza 2π.' }, { latex: `T=\\frac{2\\pi}{${params.w}}=${ansLatex}`, note: 'Simplifica.' }]
+          ? [{ latex: `\\sin(\\omega t)\\;\\text{ tiene periodo }\\; T=\\frac{2\\pi}{\\omega}`, note: 'El periodo es el tiempo en que el argumento avanza 2π.' }, { latex: `T=\\frac{2\\pi}{${params.w}}=${ansLatex}`, note: 'Simplifica.' }]
           : [{ latex: `T_1=${piFrac(2, params.a)},\\quad T_2=${piFrac(2, params.b)}`, note: 'Cada término tiene su propio periodo.' }, { latex: `T=\\operatorname{mcm}(T_1,T_2)=\\frac{2\\pi}{\\gcd(${params.a},${params.b})}=${ansLatex}`, note: 'El periodo de la suma es el mínimo común múltiplo de los periodos (si existe).' }],
         distractors: uniqueDistractors(ansLatex, specifics.map((l, i) => ({ latex: l, feedback: ['Revisa la fórmula T = 2π/ω (te faltó el 2 o lo duplicaste).', 'Piensa en cuánto tarda el argumento en avanzar 2π.', 'Eso se parece a la frecuencia f = ω/2π, no al periodo T = 2π/ω.', 'El periodo no es un múltiplo arbitrario: revisa T = 2π/ω.', 'Revisa la fórmula T = 2π/ω.', 'Revisa la fórmula T = 2π/ω.'][i] }))),
       };
@@ -261,7 +261,7 @@ export const templatesN4 = [
         statement: { text: '¿Cuál es la ganancia en continua (DC) del sistema, es decir H(0)?', latex: `H(s)=\\frac{${K}}{${den}}` },
         answer: ansOf(val),
         steps: [
-          { latex: 'H(0)\;=\;\\text{ganancia a frecuencia cero}', note: 'En régimen permanente con entrada constante, s = 0.' },
+          { latex: 'H(0)\\;=\\;\\text{ganancia a frecuencia cero}', note: 'En régimen permanente con entrada constante, s = 0.' },
           { latex: `H(0)=\\frac{${K}}{${q}}=${val.toLatex()}`, note: 'Sustituye s = 0 en el denominador.' },
         ],
         distractors: numericDistractors(val, compact([
@@ -277,21 +277,31 @@ export const templatesN4 = [
     topic: 'Señales y sistemas',
     difficulty: 3,
     generate(rng) {
-      const p1 = rng.int(-5, 5);
-      const p2 = rng.int(-5, 5);
-      const re = [p1, p2];
-      const verdict = re.some((p) => p > 0) || (p1 === 0 && p2 === 0) ? 'Inestable' : re.some((p) => p === 0) ? 'Marginalmente estable' : 'Estable';
+      // Primero se sortea la clase, para que las tres sean igual de probables y adivinar no convenga.
+      const kind = rng.int(0, 2);
+      let poles;
+      if (kind === 0) poles = [rng.int(-5, -1), rng.int(-5, -1)];
+      else if (kind === 1) poles = [0, rng.int(-5, -1)];
+      else poles = rng.int(0, 5) === 0 ? [0, 0] : [rng.int(1, 5), rng.int(-5, 5)];
+      const [p1, p2] = rng.int(0, 1) ? poles : [poles[1], poles[0]];
+      const verdict = poles.some((p) => p > 0) || (p1 === 0 && p2 === 0) ? 'Inestable' : poles.some((p) => p === 0) ? 'Marginalmente estable' : 'Estable';
       const options = ['Estable', 'Inestable', 'Marginalmente estable', 'No se puede determinar'];
+      const why = {
+        Estable: 'Para ser estable, todos los polos deben tener parte real negativa. Revisa cada polo.',
+        Inestable: 'Para ser inestable necesita un polo con parte real positiva o un polo doble en s = 0. Revisa dónde están.',
+        'Marginalmente estable': 'Marginal significa un polo simple en s = 0 y los demás con parte real negativa.',
+        'No se puede determinar': 'Sí se puede: los polos del denominador bastan para clasificarlo.',
+      };
       const tex = (t) => `\\text{${t}}`;
       return {
         params: { p1, p2 },
-        statement: { text: 'Un sistema LTI continuo tiene la función de transferencia con polos reales. ¿Cómo es su estabilidad (entrada–salida)?', latex: `H(s)=\\frac{1}{(${lin(p1, 's')})(${lin(p2, 's')})}` },
+        statement: { text: 'Un sistema LTI continuo tiene esta función de transferencia con polos reales. Según la ubicación de sus polos, ¿cómo se clasifica?', latex: `H(s)=\\frac{1}{(${lin(p1, 's')})(${lin(p2, 's')})}` },
         answer: { latex: tex(verdict) },
         steps: [
-          { latex: `\\text{Polos: } s=${p1},\; s=${p2}`, note: 'Los polos son las raíces del denominador.' },
-          { latex: tex(verdict), note: 'Estable: todos los polos con parte real negativa. Inestable: alguno con parte real positiva. Marginal: un polo simple en 0 y ninguno positivo (un polo doble en 0 ya es inestable).' },
+          { latex: `\\text{Polos: } s=${p1},\\; s=${p2}`, note: 'Los polos son las raíces del denominador.' },
+          { latex: tex(verdict), note: 'Estable: todos los polos con parte real negativa. Inestable: alguno con parte real positiva o un polo doble en 0. Marginal: un polo simple en 0 y ninguno positivo. Ojo: en sentido BIBO (entrada–salida), un sistema marginal cuenta como inestable.' },
         ],
-        distractors: options.filter((o) => o !== verdict).map((o) => ({ latex: tex(o), feedback: 'Revisa el signo de la parte real de los polos: <0 estable, >0 inestable, =0 marginal.' })),
+        distractors: options.filter((o) => o !== verdict).map((o) => ({ latex: tex(o), feedback: why[o] })),
       };
     },
   },
@@ -339,7 +349,7 @@ export const templatesN4 = [
         statement: { text: ask === 'posicion' ? `¿En qué valor de x la función alcanza su ${kind}?` : `¿Cuál es el valor ${kind} de la función?`, latex: `f(x)=${polyLatex([c, b, a])}` },
         answer: ansOf(val),
         steps: [
-          { latex: `f'(x)=${terms([[2 * a, 'x'], [b, '']])}=0\;\\Rightarrow\; x^{*}=${xs.toLatex()}`, note: `Como a ${a > 0 ? '> 0 abre hacia arriba' : '< 0 abre hacia abajo'}, el punto crítico es un ${kind}.` },
+          { latex: `f'(x)=${terms([[2 * a, 'x'], [b, '']])}=0\\;\\Rightarrow\\; x^{*}=${xs.toLatex()}`, note: `Como a ${a > 0 ? '> 0 abre hacia arriba' : '< 0 abre hacia abajo'}, el punto crítico es un ${kind}.` },
           ask === 'posicion' ? { latex: `x^{*}=-\\frac{b}{2a}=${xs.toLatex()}`, note: 'Vértice de la parábola.' } : { latex: `f(x^{*})=${fv.toLatex()}`, note: 'Sustituye x* en f.' },
         ],
         distractors: numericDistractors(val, compact(ask === 'posicion'
@@ -389,8 +399,8 @@ export const templatesN4 = [
         statement: { text: 'Con multiplicadores de Lagrange, ¿cuál es el valor mínimo de f sujeto a la restricción?', latex: `f(x,y)=x^{2}+y^{2},\\qquad ${terms([[a, 'x'], [b, 'y']])}=${c}` },
         answer: ansOf(val),
         steps: [
-          { latex: `\\nabla f=\\lambda\\nabla g:\; 2x=\\lambda ${num(a)},\; 2y=\\lambda ${num(b)}`, note: 'En el óptimo los gradientes son paralelos.' },
-          { latex: `x=\\frac{${num(a)}\\lambda}{2},\; y=\\frac{${num(b)}\\lambda}{2}\;\\Rightarrow\; \\lambda=\\frac{2\\cdot ${num(c)}}{${a * a + b * b}}`, note: 'Sustituye en la restricción para despejar λ.' },
+          { latex: `\\nabla f=\\lambda\\nabla g:\\; 2x=\\lambda ${num(a)},\\; 2y=\\lambda ${num(b)}`, note: 'En el óptimo los gradientes son paralelos.' },
+          { latex: `x=\\frac{${num(a)}\\lambda}{2},\\; y=\\frac{${num(b)}\\lambda}{2}\\;\\Rightarrow\\; \\lambda=\\frac{2\\cdot ${num(c)}}{${a * a + b * b}}`, note: 'Sustituye en la restricción para despejar λ.' },
           { latex: `f_{\\min}=\\frac{${c * c}}{${a * a + b * b}}=${val.toLatex()}`, note: 'Es el cuadrado de la distancia del origen a la recta.' },
         ],
         distractors: numericDistractors(val, compact([
@@ -417,11 +427,11 @@ export const templatesN4 = [
       const best = verts.reduce((m, v) => (z(v) > z(m) ? v : m), verts[0]);
       return {
         params: { A, B, S, p, q },
-        statement: { text: 'Maximiza la función objetivo sujeta a las restricciones (con x, y ≥ 0):', latex: `Z=${terms([[p, 'x'], [q, 'y']])},\\quad x\\le ${A},\; y\\le ${B},\; x+y\\le ${S}` },
+        statement: { text: 'Maximiza la función objetivo sujeta a las restricciones (con x, y ≥ 0):', latex: `Z=${terms([[p, 'x'], [q, 'y']])},\\quad x\\le ${A},\\; y\\le ${B},\\; x+y\\le ${S}` },
         answer: ansOf(fr(z(best))),
         steps: [
-          { latex: verts.map((v) => `(${v[0]},${v[1]})`).join(',\;'), note: 'El máximo de un problema lineal está en un vértice de la región factible.' },
-          { latex: verts.map((v) => `Z${`(${v[0]},${v[1]})`}=${z(v)}`).join(',\;'), note: 'Evalúa Z en cada vértice y compara.' },
+          { latex: verts.map((v) => `(${v[0]},${v[1]})`).join(',\\;'), note: 'El máximo de un problema lineal está en un vértice de la región factible.' },
+          { latex: verts.map((v) => `Z${`(${v[0]},${v[1]})`}=${z(v)}`).join(',\\;'), note: 'Evalúa Z en cada vértice y compara.' },
           { latex: `Z_{\\max}=${z(best)}\\text{ en }(${best[0]},${best[1]})`, note: 'Ese es el máximo.' },
         ],
         distractors: numericDistractors(fr(z(best)), compact([

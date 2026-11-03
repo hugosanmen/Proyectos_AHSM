@@ -133,7 +133,7 @@ export const templatesN2 = [
       const div = 2 * a * x0 + b * x0 + c * y0;
       return {
         params: { a, b, c, x0, y0 },
-        statement: { text: `Calcula la divergencia del campo en el punto (${x0}, ${y0}, 1):`, latex: `\\vec{F}(x,y,z)=\\left(${terms([[a, 'x^{2}']])},\; ${terms([[b, 'xy']])},\; ${terms([[c, 'yz']])}\\right)` },
+        statement: { text: `Calcula la divergencia del campo en el punto (${x0}, ${y0}, 1):`, latex: `\\vec{F}(x,y,z)=\\left(${terms([[a, 'x^{2}']])},\\; ${terms([[b, 'xy']])},\\; ${terms([[c, 'yz']])}\\right)` },
         answer: ansOf(fr(div)),
         steps: [
           { latex: `\\nabla\\cdot F = \\frac{\\partial P}{\\partial x}+\\frac{\\partial Q}{\\partial y}+\\frac{\\partial R}{\\partial z}`, note: 'La divergencia suma la derivada de cada componente respecto de SU variable.' },
@@ -311,7 +311,7 @@ export const templatesN2 = [
         statement: { text: 'Resuelve el problema de valor inicial:', latex: `y' = ${co(k, 'y')},\\quad y(0) = ${y0}` },
         answer: { latex: answerLatex },
         steps: [
-          { latex: `\\frac{dy}{y}=${k}\\,dx \;\\Rightarrow\; \\ln|y|=${co(k, 'x')}+C`, note: 'Separa variables e integra ambos lados.' },
+          { latex: `\\frac{dy}{y}=${k}\\,dx \\;\\Rightarrow\\; \\ln|y|=${co(k, 'x')}+C`, note: 'Separa variables e integra ambos lados.' },
           { latex: `y=Ae^{${co(k, 'x')}},\\quad y(0)=A=${y0}`, note: 'Usa la condición inicial para encontrar la constante.' },
           { latex: `y=${answerLatex}`, note: 'Esa es la solución particular.' },
         ],
@@ -342,7 +342,7 @@ export const templatesN2 = [
         answer: ansOf(fr(val)),
         steps: [
           { latex: `y=\\int (${terms([[a, 'x'], [b, '']])})\\,dx=${polyLatex([0, b, a / 2])}+C`, note: 'Integra el lado derecho.' },
-          { latex: `C=y(0)=${y0}\;\\Rightarrow\; y(${x1})=${val}`, note: 'Con la condición inicial sale C; luego evalúa.' },
+          { latex: `C=y(0)=${y0}\\;\\Rightarrow\\; y(${x1})=${val}`, note: 'Con la condición inicial sale C; luego evalúa.' },
         ],
         distractors: numericDistractors(fr(val), compact([
           dFr(fr(a * x1 + b), 'Eso es y′ evaluada en x; te piden y.'),
@@ -365,7 +365,7 @@ export const templatesN2 = [
         statement: { text: 'Para la solución con y(0) = 0, ¿a qué valor tiende y(t) cuando t → ∞?', latex: `y' + ${co(a, 'y')} = ${b}` },
         answer: ansOf(eq),
         steps: [
-          { latex: `y'=0 \;\\Rightarrow\; ${co(a, 'y')}=${b}`, note: 'En el equilibrio y deja de cambiar: y′ = 0.' },
+          { latex: `y'=0 \\;\\Rightarrow\\; ${co(a, 'y')}=${b}`, note: 'En el equilibrio y deja de cambiar: y′ = 0.' },
           { latex: `y_{eq}=${eq.toLatex()}`, note: `Como a = ${a} > 0, el equilibrio es estable y la solución tiende a él.` },
         ],
         distractors: numericDistractors(eq, compact([
@@ -393,7 +393,7 @@ export const templatesN2 = [
         answer: ansOf(fr(hi)),
         steps: [
           { latex: `r^{2}${p < 0 ? '-' : '+'}${Math.abs(p)}r${q < 0 ? '-' : '+'}${Math.abs(q)}=0`, note: 'Sustituye y = e^{rx}: cada derivada baja una potencia de r.' },
-          { latex: `(r-${num(r1)})(r-${num(r2)})=0 \;\\Rightarrow\; r=${r1},\; r=${r2}`, note: 'Factoriza la cuadrática.' },
+          { latex: `(r-${num(r1)})(r-${num(r2)})=0 \\;\\Rightarrow\\; r=${r1},\\; r=${r2}`, note: 'Factoriza la cuadrática.' },
           { latex: `r_{\\max}=${hi}`, note: 'Te piden la mayor.' },
         ],
         distractors: numericDistractors(fr(hi), compact([

@@ -119,3 +119,23 @@ for (const t of extraTemplates) {
     });
   });
 }
+
+describe('calidad del LaTeX y de ss-estabilidad', () => {
+  it('ningún texto matemático trae un ; suelto', () => {
+    for (const t of templates) {
+      forEachSeed(t.id, (ex) => {
+        const all = [ex.statement.latex, ex.answer.latex, ...ex.steps.map((s) => s.latex), ...ex.distractors.map((d) => d.latex)];
+        for (const tex of all) if (tex) assert.doesNotMatch(tex, /(?<!\\);/, tex);
+      });
+    }
+  });
+  it('ss-estabilidad: las tres clases aparecen parejas y cada opción tiene su explicación', () => {
+    const count = {};
+    forEachSeed('ss-estabilidad', (ex) => {
+      count[ex.answer.latex] = (count[ex.answer.latex] ?? 0) + 1;
+      assert.equal(new Set(ex.distractors.map((d) => d.feedback)).size, 3);
+    });
+    assert.equal(Object.keys(count).length, 3);
+    for (const n of Object.values(count)) assert.ok(n / SEEDS > 0.25 && n / SEEDS < 0.42, JSON.stringify(count));
+  });
+});

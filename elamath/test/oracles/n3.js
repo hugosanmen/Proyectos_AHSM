@@ -69,7 +69,7 @@ export const ORACLES_N3 = {
     const { xs } = ex.params;
     const mu = xs.reduce((a, b) => a + b, 0) / xs.length;
     assertClose(xs.reduce((s, x) => s + (x - mu) ** 2, 0) / xs.length, ex.answer.value, 'varianza por definición', 1e-12);
-    assert.equal(ex.statement.latex, xs.join(',\; '));
+    assert.equal(ex.statement.latex, xs.join(',\\; '));
   },
 
   'pe-binomial'(ex) {

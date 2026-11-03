@@ -252,5 +252,5 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 .review.ok summary{color:var(--ok,#0a7a3d)}
 .review.bad summary{color:var(--bad,#b3261e)}
 .review summary{font-weight:600;cursor:pointer}
-#exam-clock{font-variant-numeric:tabular-nums;margin-left:auto}
+#exam-clock{font-variant-numeric:tabular-nums;font-weight:700;margin-left:auto;background:var(--surface);color:var(--text);border-color:var(--line)}
 .section-title{margin:1.2rem 0 .4rem}

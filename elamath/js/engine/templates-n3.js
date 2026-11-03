@@ -2,7 +2,7 @@
 
 import { fr, safeFr, ansOf, num, dFr, compact, comb, perm, terms, polyLatex, cplx, TRIPLES, intNot, uniqueDistractors, numericDistractors } from './helpers.js';
 
-const interval = (lo, hi) => `\\left[${lo.toLatex()},\; ${hi.toLatex()}\\right]`;
+const interval = (lo, hi) => `\\left[${lo.toLatex()},\\; ${hi.toLatex()}\\right]`;
 const poly = (cs, x) => cs.reduce((s, c, i) => s + c * x ** i, 0);
 
 export const templatesN3 = [
@@ -89,7 +89,7 @@ export const templatesN3 = [
         statement: { text: `Aproxima la integral con la regla del trapecio usando 2 subintervalos (h = ${h}):`, latex: `\\int_{${a}}^{${b}} \\left(${polyLatex([r, q, p])}\\right)dx` },
         answer: ansOf(fr(T)),
         steps: [
-          { latex: `x_0=${a},\; x_1=${m},\; x_2=${b}`, note: 'Los nodos están separados por h.' },
+          { latex: `x_0=${a},\\; x_1=${m},\\; x_2=${b}`, note: 'Los nodos están separados por h.' },
           { latex: `T=\\frac{h}{2}\\left[f(x_0)+2f(x_1)+f(x_2)\\right]=\\frac{${h}}{2}\\left[${f(a)}+2(${f(m)})+${f(b)}\\right]=${T}`, note: 'Los extremos pesan 1 y el nodo interior pesa 2.' },
         ],
         distractors: numericDistractors(fr(T), compact([
@@ -119,7 +119,7 @@ export const templatesN3 = [
         statement: { text: `Aproxima la integral con la regla de Simpson 1/3 usando 2 subintervalos (h = ${h}):`, latex: `\\int_{${a}}^{${b}} \\left(${polyLatex(cs)}\\right)dx` },
         answer: ansOf(S),
         steps: [
-          { latex: `x_0=${a},\; x_1=${m},\; x_2=${b}`, note: 'Simpson usa un número par de subintervalos.' },
+          { latex: `x_0=${a},\\; x_1=${m},\\; x_2=${b}`, note: 'Simpson usa un número par de subintervalos.' },
           { latex: `S=\\frac{h}{3}\\left[f(x_0)+4f(x_1)+f(x_2)\\right]=\\frac{${h}}{3}\\left[${f(a)}+4(${f(m)})+${f(b)}\\right]=${S.toLatex()}`, note: 'Pesos 1-4-1. Para polinomios hasta grado 3 el resultado es exacto.' },
         ],
         distractors: numericDistractors(S, compact([
@@ -230,7 +230,7 @@ export const templatesN3 = [
       const v = fr(ss2, n * n);
       return {
         params: { xs },
-        statement: { text: 'Calcula la varianza POBLACIONAL de los datos:', latex: xs.join(',\; ') },
+        statement: { text: 'Calcula la varianza POBLACIONAL de los datos:', latex: xs.join(',\\; ') },
         answer: ansOf(v),
         steps: [
           { latex: `\\mu=\\frac{${S2}}{${n}}=${fr(S2, n).toLatex()}`, note: 'Primero la media.' },
@@ -365,8 +365,8 @@ export const templatesN3 = [
         statement: { text: 'Simplifica la potencia de la unidad imaginaria:', latex: `i^{${n}}` },
         answer: { latex: ansLatex },
         steps: [
-          { latex: 'i^{1}=i,\; i^{2}=-1,\; i^{3}=-i,\; i^{4}=1', note: 'Las potencias de i se repiten en ciclos de 4.' },
-          { latex: `${n} = 4\\cdot ${Math.floor(n / 4)} + ${r}\;\\Rightarrow\; i^{${n}} = (i^{4})^{${Math.floor(n / 4)}}\\, i^{${r}} = ${ansLatex}`, note: 'Divide el exponente entre 4: solo importa el residuo.' },
+          { latex: 'i^{1}=i,\\; i^{2}=-1,\\; i^{3}=-i,\\; i^{4}=1', note: 'Las potencias de i se repiten en ciclos de 4.' },
+          { latex: `${n} = 4\\cdot ${Math.floor(n / 4)} + ${r}\\;\\Rightarrow\\; i^{${n}} = (i^{4})^{${Math.floor(n / 4)}}\\, i^{${r}} = ${ansLatex}`, note: 'Divide el exponente entre 4: solo importa el residuo.' },
         ],
         distractors: forms.filter((f) => f !== ansLatex).map((f) => ({ latex: f, feedback: `Divide ${n} entre 4 y mira el residuo (${r}): las potencias se repiten cada 4.` })),
       };

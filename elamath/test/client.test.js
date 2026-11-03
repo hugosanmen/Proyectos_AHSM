@@ -140,7 +140,7 @@ afterEach(() => {
   current = null;
 });
 
-async function mount({ deps, bridgeOpts, search = '', storage = memStorage(), nowFn, prepareImage } = {}) {
+async function mount({ deps, bridgeOpts, search = '', storage = memStorage(), nowFn, prepareImage, store } = {}) {
   const dom = new JSDOM(html, { url: `https://elamath.test/${search}`, pretendToBeVisual: true });
   const w = dom.window;
   w.scrollTo = () => {};
@@ -157,7 +157,7 @@ async function mount({ deps, bridgeOpts, search = '', storage = memStorage(), no
   const { startApp } = await import('../js/app.js');
   const doc = w.document;
   const rng = createRng(5);
-  const app = await startApp(doc.getElementById('app'), { store: memStore(), api, now: nowFn ?? (() => NOW), random: () => rng.next(), prepareImage });
+  const app = await startApp(doc.getElementById('app'), { store: store ?? memStore(), api, now: nowFn ?? (() => NOW), random: () => rng.next(), prepareImage });
   await app.ready;
   await tick();
   const q = (s) => doc.querySelector(s);
@@ -605,6 +605,41 @@ describe('exámenes simulados en la interfaz', () => {
     assert.equal(c.app.getState().exams.length, 1);
   });
 
+  it('al recargar retoma el examen con el mismo reloj y avance', async () => {
+    clock = NOW.getTime();
+    const { deps, sent } = makeDeps();
+    const c = await mountLoggedIn(deps, sent, { nowFn });
+    await c.click(c.q('[data-exam]'));
+    await answerAll(c, 3);
+    const saved = JSON.parse(JSON.stringify(c.app.getState()));
+    assert.equal(saved.activeExam.exam.items.length, 3);
+    clock += 5 * 60_000;
+    c.app.destroy();
+    const r = await mountLoggedIn(deps, sent, { nowFn, store: { load: async () => L.normalizeState(saved), save: async () => {} } });
+    assert.match(r.q('#exam-progress').textContent, /Pregunta 4 de 10/);
+    assert.match(r.q('#exam-clock').textContent, /^15:00$/);
+    assert.match(r.q('#toast').textContent, /Retomamos tu examen/);
+    for (let i = 0; i < 7; i++) await r.click(r.q('.option[data-option="0"]'));
+    assert.ok(r.q('#exam-score'));
+    assert.equal(r.app.getState().activeExam, null);
+    assert.equal(r.app.getState().exams.length, 1);
+  });
+
+  it('si el tiempo se acabó mientras estaba fuera, al volver se entrega con lo contestado', async () => {
+    clock = NOW.getTime();
+    const { deps, sent } = makeDeps();
+    const c = await mountLoggedIn(deps, sent, { nowFn });
+    await c.click(c.q('[data-exam]'));
+    await answerAll(c, 2);
+    const saved = JSON.parse(JSON.stringify(c.app.getState()));
+    clock += 30 * 60_000;
+    c.app.destroy();
+    const r = await mountLoggedIn(deps, sent, { nowFn, store: { load: async () => L.normalizeState(saved), save: async () => {} } });
+    assert.ok(r.q('#exam-score'));
+    assert.match(r.q('.exam-result').textContent, /8 sin contestar/);
+    assert.equal(r.app.getState().activeExam, null);
+  });
+
   it('abandonar pide confirmación y no guarda nada; entregar antes de tiempo también pide confirmación', async () => {
     clock = NOW.getTime();
     const { deps, sent } = makeDeps();
@@ -622,6 +657,7 @@ describe('exámenes simulados en la interfaz', () => {
     assert.equal(c.q('#exam-clock'), null);
     assert.equal(c.app.getState().exams.length, 0);
     assert.equal(c.app.getState().stats.answered, 0);
+    assert.equal(c.app.getState().activeExam, null);
   });
 
   it('gratis (prueba terminada) → abre Pro; sin servidor (demo) el examen queda abierto', async () => {

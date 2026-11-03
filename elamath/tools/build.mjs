@@ -20,9 +20,10 @@ const IGNORE_FILES = new Set(['package.json', 'package-lock.json', 'README.md', 
 export function listAppFiles(dir = ROOT) {
   const out = [];
   for (const name of readdirSync(dir).sort()) {
+    if (name.startsWith('.')) continue; // .env*, .vercel, .git...: nada oculto se publica ni entra al precaché
     const full = join(dir, name);
     if (statSync(full).isDirectory()) {
-      if (!IGNORE_DIRS.has(name) && !name.startsWith('.')) out.push(...listAppFiles(full));
+      if (!IGNORE_DIRS.has(name)) out.push(...listAppFiles(full));
     } else if (!IGNORE_FILES.has(name)) {
       out.push(relative(ROOT, full).split(sep).join('/'));
     }

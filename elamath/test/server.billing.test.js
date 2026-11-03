@@ -97,7 +97,7 @@ describe('prueba gratis por las rutas', () => {
   it('health publica precio y días de prueba (sin secretos)', async () => {
     const { deps } = makeDeps();
     const h = (await routes.health({}, deps)).body;
-    assert.deepEqual(h.billing, { enabled: true, priceMxn: 50, trialDays: 30, instructions: '' });
+    assert.deepEqual(h.billing, { enabled: true, priceMxn: 50, trialDays: 30 });
   });
 });
 

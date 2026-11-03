@@ -981,12 +981,37 @@ export async function startApp(root, opts = {}) {
   function startExamFlow(topics, label, minDifficulty = 0) {
     // Con servidor, el examen es de Pro/prueba. Sin servidor (demo) queda abierto.
     if (backend.available && state.plan !== 'pro') return openPro('exam');
-    const pool = minDifficulty ? templates.filter((t) => t.difficulty >= minDifficulty) : templates;
-    examView = { minDifficulty, exam: X.startExam({ topics, label, now: nowMs() }), item: null, result: null, pool: pool.some((t) => topics.includes(t.topic)) ? pool : templates };
+    examView = { minDifficulty, exam: X.startExam({ topics, label, now: nowMs() }), item: null, result: null, pool: examPool(topics, minDifficulty) };
     examNext();
+    saveExam();
     stopExamTimer();
     examTimer = globalThis.setInterval(tickExam, 1000);
     go('exam');
+  }
+
+  function examPool(topics, minDifficulty) {
+    const pool = minDifficulty ? templates.filter((t) => t.difficulty >= minDifficulty) : templates;
+    return pool.some((t) => topics.includes(t.topic)) ? pool : templates;
+  }
+
+  /** Guarda el avance tras cada cambio: el reloj usa una hora límite fija, así que sigue corriendo al recargar. */
+  function saveExam() {
+    if (!examView || examView.result) return;
+    state = { ...state, activeExam: X.snapshotExam(examView) };
+    persist();
+  }
+
+  function resumeExam() {
+    const saved = state.activeExam;
+    if (!saved) return;
+    examView = { ...saved, result: null, pool: examPool(saved.exam.topics, saved.minDifficulty) };
+    view = 'exam';
+    if (X.isExpired(saved.exam, nowMs())) return finishExamNow('time');
+    if (!examView.item) examNext();
+    if (examView.result) return;
+    saveExam();
+    examTimer = globalThis.setInterval(tickExam, 1000);
+    toast('Retomamos tu examen. El tiempo siguió corriendo.');
   }
 
   function examNext() {
@@ -1001,6 +1026,7 @@ export async function startApp(root, opts = {}) {
     v.exam = X.answerItem(v.exam, v.item, i);
     if (v.exam.items.length >= v.exam.questions) return finishExamNow();
     examNext();
+    saveExam();
     if (!v.result) render();
   }
 
@@ -1010,7 +1036,7 @@ export async function startApp(root, opts = {}) {
     stopExamTimer();
     v.exam = X.finishExam(v.exam, nowMs());
     const r = X.applyExam(state, v.exam, today());
-    state = r.state;
+    state = { ...r.state, activeExam: null };
     persist();
     v.result = { grade: X.gradeExam(v.exam), xpGained: r.xpGained };
     v.item = null;
@@ -1032,6 +1058,8 @@ export async function startApp(root, opts = {}) {
     if (examView && !examView.result && !globalThis.confirm?.('¿Abandonar el examen? No se guardará ningún resultado.')) return;
     stopExamTimer();
     examView = null;
+    state = { ...state, activeExam: null };
+    persist();
     go('home');
   }
 
@@ -1150,6 +1178,7 @@ export async function startApp(root, opts = {}) {
   }
   const ready = initBackend();
 
+  resumeExam();
   render();
 
   return {

@@ -164,3 +164,15 @@ describe('estado', () => {
     assert.equal(no.leveledUp, false);
   });
 });
+
+describe('examen en curso guardado', () => {
+  const ex = { topic: 'Límites', statement: { text: 'x' }, options: [{ latex: '1', correct: true }] };
+  const exam = { topics: ['Límites'], label: 'Cálculo', questions: 10, startedAt: 1, deadline: 2, target: 2, items: [], finished: false };
+  it('conserva uno válido y descarta formas inválidas', () => {
+    const ok = { exam, item: { ex, picked: null, correct: null }, minDifficulty: 3 };
+    assert.deepEqual(L.normalizeActiveExam(ok), ok);
+    for (const bad of [null, {}, { exam: { ...exam, topics: [] } }, { exam: { ...exam, deadline: 'x' } }, { exam: { ...exam, finished: true } }, { exam, item: { ex: {}, picked: null } }, { exam: { ...exam, items: [{}] } }]) {
+      assert.equal(L.normalizeActiveExam(bad), null);
+    }
+  });
+});

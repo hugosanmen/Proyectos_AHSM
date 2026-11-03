@@ -5,13 +5,12 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = 'bc9090abe823';
+const VERSION = '592a4650f6c0';
 // </build:version>
 
 // <build:precache>
 const PRECACHE = [
   "./",
-  "./.env.example",
   "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

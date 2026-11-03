@@ -183,7 +183,7 @@ export const templatesN1 = [
       const D = h * m;
       return {
         params: { x1, y1, x2, y2 },
-        statement: { text: 'Calcula la distancia entre los puntos:', latex: `A(${x1},${y1}),\; B(${x2},${y2})` },
+        statement: { text: 'Calcula la distancia entre los puntos:', latex: `A(${x1},${y1}),\\; B(${x2},${y2})` },
         answer: ansOf(fr(D)),
         steps: [
           { latex: `d=\\sqrt{(${num(x2)}-${num(x1)})^{2}+(${num(y2)}-${num(y1)})^{2}}`, note: 'Fórmula de distancia: Pitágoras con las diferencias en x y en y.' },
@@ -209,7 +209,7 @@ export const templatesN1 = [
       const m = fr(y2 - y1, x2 - x1);
       return {
         params: { x1, y1, x2, y2 },
-        statement: { text: 'Calcula la pendiente de la recta que pasa por los puntos:', latex: `P(${x1},${y1}),\; Q(${x2},${y2})` },
+        statement: { text: 'Calcula la pendiente de la recta que pasa por los puntos:', latex: `P(${x1},${y1}),\\; Q(${x2},${y2})` },
         answer: ansOf(m),
         steps: [
           { latex: `m=\\frac{y_2-y_1}{x_2-x_1}=\\frac{${num(y2)}-${num(y1)}}{${num(x2)}-${num(x1)}}`, note: 'Cambio en y entre cambio en x (en el mismo orden arriba y abajo).' },
@@ -268,7 +268,7 @@ export const templatesN1 = [
         answer: ansOf(fr(r)),
         steps: [
           { latex: `(${lin(h)})^{2}+(${lin(k, 'y')})^{2} = ${h * h + k * k - c}`, note: 'Completa cuadrados en x y en y (suma h² y k² a ambos lados).' },
-          { latex: `r^{2}=${r * r}\;\\Rightarrow\; r=${r}`, note: 'El lado derecho es r²: saca la raíz.' },
+          { latex: `r^{2}=${r * r}\\;\\Rightarrow\\; r=${r}`, note: 'El lado derecho es r²: saca la raíz.' },
         ],
         distractors: numericDistractors(fr(r), compact([
           dFr(fr(r * r), 'Ese es r², te falta la raíz cuadrada.'),
@@ -289,8 +289,8 @@ export const templatesN1 = [
         statement: { text: 'Para esta parábola con vértice en el origen, ¿cuál es la abscisa (coordenada x) de su foco?', latex: `y^{2} = ${4 * p}x` },
         answer: ansOf(fr(p)),
         steps: [
-          { latex: `y^{2}=4px \;\\Rightarrow\; 4p=${4 * p}`, note: 'Compara con la forma estándar y² = 4px.' },
-          { latex: `p=${p}\;\\Rightarrow\; F(${p},0)`, note: 'El foco está en (p, 0).' },
+          { latex: `y^{2}=4px \\;\\Rightarrow\\; 4p=${4 * p}`, note: 'Compara con la forma estándar y² = 4px.' },
+          { latex: `p=${p}\\;\\Rightarrow\\; F(${p},0)`, note: 'El foco está en (p, 0).' },
         ],
         distractors: numericDistractors(fr(p), compact([
           dFr(fr(4 * p), 'Ese es 4p, el coeficiente; el foco está en p.'),
@@ -448,7 +448,7 @@ export const templatesN1 = [
         statement: { text: 'Calcula la integral indefinida:', latex: `\\int ${integrand}\\,dx` },
         answer: { latex: answerLatex },
         steps: [
-          { latex: `u=${kx},\; du=${k}\\,dx`, note: 'Cambio de variable lineal: ∫f(kx)dx = (1/k)∫f(u)du.' },
+          { latex: `u=${kx},\\; du=${k}\\,dx`, note: 'Cambio de variable lineal: ∫f(kx)dx = (1/k)∫f(u)du.' },
           { latex: answerLatex, note: 'Integra la función básica, divide entre k y agrega +C.' },
         ],
         distractors: uniqueDistractors(answerLatex, distractors),

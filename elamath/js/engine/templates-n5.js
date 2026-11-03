@@ -70,7 +70,7 @@ export const templatesN5 = [
         statement: { text: `Un tanque de ${V} L contiene agua pura. Entra salmuera de ${c} g/L a ${r} L/min y sale la mezcla (bien agitada) a ${r} L/min. ¿Hacia cuántos gramos de sal tiende la cantidad en el tanque a largo plazo?`, latex: "S'(t)=c\\,r-\\frac{r}{V}S(t)" },
         answer: ansOf(fr(c * V)),
         steps: [
-          { latex: "S'=0\;\\Rightarrow\; c\\,r=\\frac{r}{V}S", note: 'En equilibrio la sal que entra es igual a la que sale.' },
+          { latex: "S'=0\\;\\Rightarrow\\; c\\,r=\\frac{r}{V}S", note: 'En equilibrio la sal que entra es igual a la que sale.' },
           { latex: `S_{eq}=c\\,V=${c}\\cdot ${V}=${c * V}`, note: 'El flujo r se cancela: el equilibrio solo depende de la concentración y el volumen.' },
         ],
         distractors: numericDistractors(fr(c * V), compact([
@@ -110,7 +110,7 @@ export const templatesN5 = [
         answer: ansOf(fr(ans)),
         steps: [
           { latex: '\\tau = RC,\\qquad \\text{k}\\Omega\\cdot\\mu\\text{F}=\\text{ms}', note: 'Las unidades kΩ y µF dan milisegundos directamente.' },
-          { latex: variant === 'tau' ? `\\tau=${R}\\cdot ${C}=${tau}\\text{ ms}` : variant === 'C' ? `C=\\frac{\\tau}{R}=\\frac{${tau}}{${R}}=${C}\;\\mu\\text{F}` : `R=\\frac{\\tau}{C}=\\frac{${tau}}{${C}}=${R}\;\\text{k}\\Omega`, note: 'Sustituye y calcula.' },
+          { latex: variant === 'tau' ? `\\tau=${R}\\cdot ${C}=${tau}\\text{ ms}` : variant === 'C' ? `C=\\frac{\\tau}{R}=\\frac{${tau}}{${R}}=${C}\\;\\mu\\text{F}` : `R=\\frac{\\tau}{C}=\\frac{${tau}}{${C}}=${R}\\;\\text{k}\\Omega`, note: 'Sustituye y calcula.' },
         ],
         distractors: numericDistractors(fr(ans), compact(wrong.map(([v, fb]) => dFr(typeof v === 'number' ? fr(v) : v, fb)))),
       };

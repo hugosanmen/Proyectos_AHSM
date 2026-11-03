@@ -14,17 +14,21 @@ const tutor = (deps, headers, body) => routes.tutor({ headers, body, ip: '2.2.2.
 const admin = { authorization: `Bearer ${ADMIN}` };
 
 describe('GET /api/health', () => {
-  it('indica qué piezas están configuradas, sin revelar secretos', async () => {
+  it('en público solo confirma que hay API y el precio, sin infraestructura ni datos de pago', async () => {
+    const { deps } = makeDeps({ env: { PAY_INSTRUCTIONS: 'CLABE 012345' } });
+    const r = await routes.health({ headers: {} }, deps);
+    assert.deepEqual(r.body, { ok: true, billing: { enabled: true, priceMxn: 50, trialDays: 30 } });
+    const falso = await routes.health({ headers: { authorization: 'Bearer incorrecto' } }, deps);
+    assert.deepEqual(Object.keys(falso.body), ['ok', 'billing']);
+  });
+  it('con ADMIN_TOKEN indica qué piezas están configuradas, sin revelar secretos', async () => {
     const { deps } = makeDeps();
-    const r = await routes.health({}, deps);
+    const r = await routes.health({ headers: admin }, deps);
     assert.deepEqual(r.body, {
       ok: true, store: 'memory', auth: true, email: true, tutor: true, provider: 'anthropic', scan: true, admin: true,
-      billing: { enabled: true, priceMxn: 50, trialDays: 30, instructions: '' },
+      billing: { enabled: true, priceMxn: 50, trialDays: 30 },
     });
     assert.doesNotMatch(JSON.stringify(r.body), /sk-ant|re_test|s3cret/);
-    const sinNada = makeDeps({ env: { SESSION_SECRET: '', ANTHROPIC_API_KEY: '', RESEND_API_KEY: '', ADMIN_TOKEN: '' } });
-    const vacio = (await routes.health({}, sinNada.deps)).body;
-    assert.deepEqual([vacio.auth, vacio.email, vacio.tutor, vacio.scan, vacio.provider, vacio.admin], [false, false, false, false, null, false]);
   });
 });
 

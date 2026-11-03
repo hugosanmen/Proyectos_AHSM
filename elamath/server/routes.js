@@ -19,11 +19,15 @@ function isAdmin(ctx, config) {
   return Boolean(config.adminToken && m && safeEqual(m[1], config.adminToken));
 }
 
-const billingInfo = (config) => ({ enabled: config.billing.enabled, priceMxn: config.billing.priceMxn, trialDays: config.billing.trialDays, instructions: config.billing.instructions });
+const publicBilling = (config) => ({ enabled: config.billing.enabled, priceMxn: config.billing.priceMxn, trialDays: config.billing.trialDays });
+// Los datos de pago solo se entregan a usuarios con sesión y cuando el cobro está encendido.
+const billingInfo = (config) => ({ ...publicBilling(config), instructions: config.billing.enabled ? config.billing.instructions : '' });
 const planOf = (user, { config, now }) => effectivePlan(user, now(), config.billing.trialDays, config.billing.enabled);
 
 export const routes = {
-  async health(_ctx, { config, storeKind }) {
+  // Público: solo lo que la app necesita. Con ADMIN_TOKEN agrega el diagnóstico del despliegue.
+  async health(ctx, { config, storeKind }) {
+    if (!isAdmin(ctx, config)) return json(200, { ok: true, billing: publicBilling(config) });
     return json(200, {
       ok: true,
       store: storeKind,
@@ -32,7 +36,7 @@ export const routes = {
       tutor: llmConfigured(config),
       provider: config.llm.provider || null,
       scan: llmConfigured(config) && Boolean(config.llm.models.vision),
-      billing: billingInfo(config),
+      billing: publicBilling(config),
       admin: Boolean(config.adminToken),
     });
   },

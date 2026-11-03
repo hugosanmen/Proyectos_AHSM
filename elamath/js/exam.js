@@ -47,6 +47,9 @@ export function answerItem(exam, item, pickedIndex) {
   return { ...exam, items: [...exam.items, done], target };
 }
 
+/** Copia simple del examen en curso, lista para guardarse. */
+export const snapshotExam = ({ exam, item, minDifficulty }) => JSON.parse(JSON.stringify({ exam, item, minDifficulty }));
+
 export const timeLeftMs = (exam, now) => Math.max(0, exam.deadline - now);
 export const isExpired = (exam, now) => now >= exam.deadline;
 
