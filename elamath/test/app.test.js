@@ -89,14 +89,15 @@ const correctIdx = (p) => p.ex.options.findIndex((o) => o.correct);
 const wrongIdx = (p) => p.ex.options.findIndex((o) => !o.correct);
 
 describe('inicio', () => {
-  it('muestra nivel, las 16 materias de los 5 niveles y contador de consultas', async () => {
+  it('muestra nivel, las 16 materias de los 5 niveles y acceso a planes', async () => {
     const c = await mount();
     assert.match(c.q('h1').textContent, /Nivel 1 · Aspirante/);
     assert.equal(c.qa('details.level').length, 5, 'cinco niveles');
     assert.equal(c.qa('details.level[open]').length, 5, 'todos los niveles visibles');
     assert.equal(c.qa('article.subject').length, 16);
     assert.equal(c.qa('.subject.disabled').length, 0, 'ninguna materia queda como «próximamente»');
-    assert.match(c.q('#hud').textContent, /10\/10 consultas hoy/);
+    assert.match(c.q('#plans-chip').textContent, /Planes/);
+    assert.doesNotMatch(c.q('#hud').textContent, /consultas/);
     assert.match(c.q('#hud').textContent, /Nv\. 1/);
     for (const topic of ['Límites', 'Derivadas', 'Aplicaciones de la derivada', 'Ecuaciones y sistemas', 'Matrices', 'Transformada de Laplace', 'Sistemas dinámicos']) {
       assert.ok(c.q(`button[aria-label="Practicar ${topic}"]`), topic);
@@ -210,18 +211,27 @@ describe('práctica', () => {
   });
 });
 
-describe('paso a paso y créditos', () => {
-  it('gasta 1 consulta, muestra los pasos con KaTeX y no se cobra dos veces', async () => {
+describe('paso a paso', () => {
+  it('muestra los pasos con KaTeX, sin límite ni aviso de consumo', async () => {
     const c = await mount();
     const p = await startMixed(c);
     await c.click(c.q('#explain-btn'));
     assert.equal(c.qa('.steps li').length, p.ex.steps.length);
     assert.ok(c.qa('.steps li').every((li) => li.querySelector('.katex')));
     assert.equal(c.q('.katex-error'), null);
-    assert.match(c.q('#hud').textContent, /9\/10 consultas hoy/);
-    assert.equal(c.q('#explain-btn'), null, 'el botón desaparece: no se vuelve a cobrar');
-    assert.equal(c.api.getState().credits.used, 1);
-    assert.equal(c.store.saved.credits.used, 1);
+    assert.equal(c.q('#explain-btn'), null, 'ya está visible: el botón desaparece');
+    assert.equal(c.q('#pro-dialog').hasAttribute('open'), false);
+  });
+
+  it('se puede usar en más de 150 ejercicios seguidos', async () => {
+    const c = await mount();
+    await startMixed(c);
+    for (let i = 0; i < 160; i++) {
+      await c.click(c.q('#explain-btn'));
+      assert.ok(c.qa('.steps li').length > 0);
+      await c.click(c.q('#next-btn'));
+    }
+    assert.equal(c.q('#pro-dialog').hasAttribute('open'), false);
   });
 
   it('pedir ayuda antes de responder reduce el XP a la mitad y lo avisa', async () => {
@@ -244,43 +254,20 @@ describe('paso a paso y créditos', () => {
     assert.equal(c.qa('.steps li').length, p.ex.steps.length);
   });
 
-  it('sin consultas: abre el modal Pro, no muestra pasos y no gasta nada', async () => {
-    const store = memStore({ ...L.defaultState(), credits: { date: TODAY, used: 10 } });
-    const c = await mount({ store });
-    await startMixed(c);
-    assert.match(c.q('#hud').textContent, /0\/10 consultas hoy/);
-    await c.click(c.q('#explain-btn'));
-    assert.ok(c.q('#pro-dialog').hasAttribute('open'));
-    assert.match(c.q('#pro-dialog').textContent, /límite de consultas de hoy/);
-    assert.equal(c.qa('.steps li').length, 0);
-    assert.equal(c.api.getState().credits.used, 10);
-  });
-
-  it('las consultas se renuevan al día siguiente', async () => {
-    const store = memStore({ ...L.defaultState(), credits: { date: '2026-10-19', used: 10 } });
-    const c = await mount({ store });
-    assert.match(c.q('#hud').textContent, /10\/10 consultas hoy/);
-  });
-
-  it('activar Pro de prueba sube el tope y permite seguir; se puede revertir', async () => {
-    const store = memStore({ ...L.defaultState(), credits: { date: TODAY, used: 10 } });
-    const c = await mount({ store });
-    await startMixed(c);
-    await c.click(c.q('#explain-btn'));
+  it('activar Pro de prueba funciona y se puede revertir', async () => {
+    const c = await mount();
+    await c.click(c.q('#plans-chip'));
     await c.click(c.q('#toggle-plan'));
     assert.equal(c.q('#pro-dialog').hasAttribute('open'), false);
     assert.equal(c.store.saved.plan, 'pro');
-    assert.match(c.q('#hud').textContent, /Pro · 140 consultas hoy/);
-    await c.click(c.q('#explain-btn'));
-    assert.equal(c.qa('.steps li').length > 0, true, 'ahora sí puede ver el paso a paso');
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     await c.click(c.q('#toggle-plan'));
     assert.equal(c.store.saved.plan, 'free');
   });
 
   it('el modal Pro muestra precios y aclara que es una demostración', async () => {
     const c = await mount();
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     const t = c.q('#pro-dialog').textContent;
     assert.match(t, /\$50 MXN \/ mes/);
     assert.doesNotMatch(t, /semestre/);

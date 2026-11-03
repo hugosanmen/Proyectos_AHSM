@@ -1,7 +1,7 @@
 // quota.js — plan del usuario y cuota diaria del Peer Tutor, decididos SIEMPRE en el servidor.
 //
 // El tutor es lo que cuesta dinero (cada mensaje llama a un modelo), así que es lo que se limita aquí.
-// El "paso a paso básico" del plan gratis es contenido local y se sigue contando en el navegador.
+// El paso a paso es contenido local y gratuito: no tiene límite.
 
 const DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' });
 

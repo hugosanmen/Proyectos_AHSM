@@ -91,7 +91,7 @@ describe('precaché', () => {
     const files = new Set(listAppFiles().map((f) => `./${f}`));
     for (const needed of [
       './index.html', './styles.css', './manifest.json', './js/main.js', './js/app.js', './js/logic.js',
-      './js/db.js', './js/credits.js', './js/curriculum.js', './js/engine/index.js', './js/engine/templates.js',
+      './js/db.js', './js/curriculum.js', './js/engine/index.js', './js/engine/templates.js',
       './js/engine/utils.js', './vendor/katex/katex.min.js', './vendor/katex/katex.min.css', './icons/icon-192.png',
     ]) assert.ok(files.has(needed), `falta en precaché: ${needed}`);
   });

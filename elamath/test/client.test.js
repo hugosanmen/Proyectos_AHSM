@@ -192,7 +192,7 @@ describe('interfaz con backend', () => {
     await c.click(c.q('button[aria-label^="Practicar"]'));
     assert.equal(c.q('#tutor-btn'), null);
     assert.ok(c.q('#report-btn'), 'el reporte siempre existe');
-    assert.match(c.q('#credits-chip').textContent, /10\/10 consultas hoy/);
+    assert.match(c.q('#plans-chip').textContent, /Planes/);
   });
 
   it('con backend aparece "Entrar"; el enlace del correo inicia sesión y limpia la URL', async () => {
@@ -263,7 +263,7 @@ describe('interfaz con backend', () => {
     await grantPro(routes, deps, 'ana@correo.com');
     const again = await mount({ deps, storage: c.storage });
     await again.click(again.q('button[aria-label^="Practicar"]'));
-    assert.match(again.q('#credits-chip').textContent, /Pro/);
+    assert.match(again.q('#account-chip').textContent, /Pro/);
     await again.click(again.q('#tutor-btn'));
     assert.ok(again.q('#tutor-input'), 'Pro: chat listo');
     assert.match(again.q('#tutor-quota').textContent, /40 de 40/);
@@ -359,7 +359,7 @@ describe('interfaz con backend', () => {
   it('el Pro de demostración local no aparece cuando hay backend', async () => {
     const { deps } = makeDeps();
     const c = await mount({ deps });
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     assert.equal(c.q('#toggle-plan'), null);
     assert.ok(c.q('#pro-login'));
   });
@@ -381,9 +381,9 @@ describe('prueba gratis y planes en la interfaz', () => {
     const { deps, sent } = makeDeps({ env: { PAY_INSTRUCTIONS: 'Transfiere $50 a la CLABE 0123 y manda tu correo.' } });
     const c = await mountLoggedIn(deps, sent);
     assert.match(c.q('#account-chip').textContent, /Prueba · 30 d/);
-    assert.match(c.q('#credits-chip').textContent, /Prueba · 150 consultas/);
+    assert.match(c.q('#plans-chip').textContent, /40 mensajes hoy/);
     assert.equal(c.app.getState().plan, 'pro', 'durante la prueba se desbloquea todo');
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     const t = c.q('#pro-dialog').textContent;
     assert.match(t, /\$50 MXN \/ mes/);
     assert.match(t, /Tu prueba gratis termina el .* \(30 días\)/);
@@ -437,7 +437,7 @@ describe('códigos de promoción en la interfaz', () => {
   it('canjear un código válido activa Pro al instante (HUD, plan local y cupo del tutor)', async () => {
     const { deps, f } = await freeUser();
     await routes.adminPromo({ method: 'POST', headers: adminH, body: { code: 'UNAM-30', days: 30 } }, deps);
-    await f.click(f.q('#credits-chip'));
+    await f.click(f.q('#plans-chip'));
     assert.match(f.q('#trial-status').textContent, /terminó/);
     await redeemUi(f, 'unam-30');
     assert.match(f.q('#promo-status').textContent, /Sumaste 30 días de Pro/);
@@ -452,7 +452,7 @@ describe('códigos de promoción en la interfaz', () => {
     const { deps, f, sent } = await freeUser();
     await routes.adminPromo({ method: 'POST', headers: adminH, body: { code: 'UNA-VEZ', days: 5 } }, deps);
     await routes.adminPromo({ method: 'POST', headers: adminH, body: { code: 'LLENO', days: 5, maxUses: 1 } }, deps);
-    await f.click(f.q('#credits-chip'));
+    await f.click(f.q('#plans-chip'));
     await redeemUi(f, 'NOEXISTE');
     assert.match(f.q('#promo-status').textContent, /no existe/);
     await redeemUi(f, '   ');
@@ -479,7 +479,7 @@ describe('códigos de promoción en la interfaz', () => {
   it('sin conexión avisa; el formulario no aparece sin sesión', async () => {
     const { deps } = makeDeps();
     const anon = await mount({ deps });
-    await anon.click(anon.q('#credits-chip'));
+    await anon.click(anon.q('#plans-chip'));
     assert.equal(anon.q('#promo-form'), null);
     assert.ok(anon.q('#pro-login'));
     assert.match(anon.q('#pro-login').textContent, /30 días gratis/);
@@ -731,11 +731,11 @@ describe('etapa de pruebas en la interfaz (cobro apagado)', () => {
     const c = await mountLoggedIn(deps, sent);
     assert.match(c.q('#account-chip').textContent, /Cuenta/);
     assert.doesNotMatch(c.q('#account-chip').textContent, /Prueba/);
-    assert.doesNotMatch(c.q('#credits-chip').textContent, /Pro/);
+    assert.doesNotMatch(c.q('#plans-chip').textContent, /Pro/);
     assert.equal(c.app.getState().plan, 'pro');
     assert.equal(c.doc.body.textContent.includes('Ver plan Pro'), false);
     assert.ok(c.q('#scan-open'));
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     const t = c.q('#pro-dialog').textContent;
     assert.match(t, /etapa de pruebas/);
     assert.doesNotMatch(t, /\$|MXN|Pro\b.*mes|código|pagar/i);
@@ -761,7 +761,7 @@ describe('etapa de pruebas en la interfaz (cobro apagado)', () => {
   it('sin sesión el modal invita a entrar (gratis), sin hablar de precios', async () => {
     const { deps } = makeDeps({ env: { BILLING_ENABLED: '' } });
     const c = await mount({ deps });
-    await c.click(c.q('#credits-chip'));
+    await c.click(c.q('#plans-chip'));
     assert.match(c.q('#pro-dialog').textContent, /Entra con tu correo para usar todo gratis/);
     assert.doesNotMatch(c.q('#pro-dialog').textContent, /\$50/);
   });

@@ -42,27 +42,6 @@ export const masteryRatio = (recent) => (recent.length ? recent.filter(Boolean).
 export const masteryShown = (recent) => recent.filter(Boolean).length / Math.max(recent.length, MASTERY_MIN_ATTEMPTS);
 export const isMastered = (recent) => recent.length >= MASTERY_MIN_ATTEMPTS && masteryRatio(recent) >= MASTERY_THRESHOLD;
 
-// ── Créditos (consultas de paso a paso) ─────────────────────────
-export const DAILY_LIMITS = { free: 10, pro: 150 }; // Pro: "uso justo", no ilimitado real
-
-export function normalizeCredits(credits, today) {
-  return !credits || credits.date !== today ? { date: today, used: 0 } : credits;
-}
-
-export function creditsStatus(credits, today, plan) {
-  const c = normalizeCredits(credits, today);
-  const limit = DAILY_LIMITS[plan] ?? DAILY_LIMITS.free;
-  return { used: c.used, limit, remaining: Math.max(0, limit - c.used), plan };
-}
-
-/** Intenta gastar un crédito. Devuelve { ok, credits } sin mutar nada. */
-export function consumeCredit(credits, today, plan) {
-  const c = normalizeCredits(credits, today);
-  const { remaining } = creditsStatus(c, today, plan);
-  if (remaining <= 0) return { ok: false, credits: c };
-  return { ok: true, credits: { ...c, used: c.used + 1 } };
-}
-
 // ── Racha (días consecutivos practicando) ───────────────────────
 const toUtcDay = (s) => {
   const [y, m, d] = s.split('-').map(Number);
@@ -117,7 +96,6 @@ export const defaultState = () => ({
   version: STATE_VERSION,
   xp: 0,
   plan: 'free', // 'free' | 'pro' (en esta fase es solo una demo local, NO segura)
-  credits: null,
   streak: null,
   topics: {}, // { [tema]: { recent: boolean[] } }
   stats: { answered: 0, correct: 0 },
@@ -129,9 +107,10 @@ export const defaultState = () => ({
 export function normalizeState(raw) {
   const base = defaultState();
   if (!raw || typeof raw !== 'object' || raw.version !== STATE_VERSION) return base;
+  const { credits: _obsoleto, ...saved } = raw; // el contador de paso a paso ya no existe
   return {
     ...base,
-    ...raw,
+    ...saved,
     plan: raw.plan === 'pro' ? 'pro' : 'free',
     xp: Number.isFinite(raw.xp) && raw.xp >= 0 ? raw.xp : 0,
     topics: raw.topics && typeof raw.topics === 'object' ? raw.topics : {},

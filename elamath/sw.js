@@ -5,7 +5,7 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = '3fd88c80af3f';
+const VERSION = '2127981c088e';
 // </build:version>
 
 // <build:precache>
@@ -20,7 +20,6 @@ const PRECACHE = [
   "./index.html",
   "./js/api.js",
   "./js/app.js",
-  "./js/credits.js",
   "./js/curriculum.js",
   "./js/db.js",
   "./js/engine/helpers.js",

@@ -8,7 +8,6 @@
 import { generateExercise, toMultipleChoice, templates } from './engine/index.js';
 import { CURRICULUM } from './curriculum.js';
 import { createStore } from './db.js';
-import { LocalCreditsService } from './credits.js';
 import { createApi } from './api.js';
 import { renderRichText } from './richtext.js';
 import { prepareImage } from './image.js';
@@ -87,7 +86,6 @@ export async function startApp(root, opts = {}) {
   const persist = () => {
     Promise.resolve(store.save(state)).catch(() => {});
   };
-  const credits = new LocalCreditsService({ get: () => state, set: (s) => (state = s), today, persist });
 
   let view = 'home';
   let practice = null;
@@ -135,22 +133,19 @@ export async function startApp(root, opts = {}) {
     }
   }
 
-  // ── HUD (nivel, racha, consultas, cuenta) ─────────────────────
+  // ── HUD (nivel, racha, mensajes del tutor, cuenta) ─────────────────────
   async function renderHud() {
     const hud = $('hud');
     if (!hud) return;
     const info = L.levelInfo(state.xp);
-    const st = await credits.status();
     const streak = L.currentStreak(state.streak, today());
-    const tag = account?.plan === 'trial' ? 'Prueba · ' : account?.plan === 'open' ? '' : 'Pro · ';
-    const creditsCount = st.plan === 'pro' ? `${st.remaining}` : `${st.remaining}/${st.limit}`;
-    const creditsText = `${st.plan === 'pro' ? tag : ''}${creditsCount} consultas hoy`;
+    const left = account?.tutor?.limit > 0 ? account.tutor.remaining : null; // la única cuota es la del tutor
     const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? '⭐ Pro' : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
     put(
       hud,
       h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nv. ${info.level}`),
       h('span', { class: 'chip', 'aria-label': `Racha de ${streak} días` }, `🔥 ${streak}`),
-      h('button', { class: 'chip chip-btn', type: 'button', id: 'credits-chip', onclick: () => openPro('info'), 'aria-label': `${creditsText}. Abrir planes` }, h('span', { class: 'chip-long' }, st.plan === 'pro' ? tag : ''), creditsCount, h('span', { class: 'chip-long' }, ' consultas'), ' hoy'),
+      h('button', { class: 'chip chip-btn', type: 'button', id: 'plans-chip', onclick: () => openPro('info'), 'aria-label': left === null ? 'Ver planes' : `${left} mensajes del tutor hoy. Ver planes` }, left === null ? 'Planes' : [`${left}`, h('span', { class: 'chip-long' }, ' mensajes'), ' hoy']),
       backend.available &&
         h('button', { class: 'chip chip-btn', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, accountText),
     );
@@ -304,7 +299,7 @@ export async function startApp(root, opts = {}) {
 
     const explainBtn = practice.explained
       ? null
-      : h('button', { class: 'btn', type: 'button', id: 'explain-btn', onclick: explain }, 'Ver paso a paso (usa 1 consulta)');
+      : h('button', { class: 'btn', type: 'button', id: 'explain-btn', onclick: explain }, 'Ver paso a paso');
     const tutorBtn = backend.available ? h('button', { class: 'btn', type: 'button', id: 'tutor-btn', onclick: openTutor }, '💬 Peer Tutor') : null;
     const scanBtn = backend.available && backend.scan !== false ? h('button', { class: 'btn', type: 'button', id: 'scan-btn', onclick: openScan }, '📷 Revisar mi procedimiento') : null;
     const nextBtn = h('button', { class: answered ? 'btn btn-primary' : 'btn btn-ghost', type: 'button', id: 'next-btn', onclick: nextExercise }, answered ? 'Siguiente ejercicio' : 'Saltar ejercicio');
@@ -352,13 +347,8 @@ export async function startApp(root, opts = {}) {
     if (res.leveledUp) showLevelUp(res.level);
   }
 
-  async function explain() {
+  function explain() {
     if (!practice || practice.explained) return;
-    const r = await credits.consume();
-    if (!r.ok) {
-      openPro('limit');
-      return;
-    }
     practice.explained = true;
     render();
   }
@@ -387,7 +377,6 @@ export async function startApp(root, opts = {}) {
           'div',
           { class: 'dialog-body' },
           h('h2', { id: 'pro-title' }, 'ElaMath en etapa de pruebas'),
-          reason === 'limit' ? h('p', {}, `Llegaste al límite de consultas de paso a paso de hoy (${L.DAILY_LIMITS[state.plan]}). Se renuevan mañana.`) : null,
           h('p', {}, account ? 'Tienes acceso completo y gratis mientras dura la etapa de pruebas:' : 'Entra con tu correo para usar todo gratis mientras dura la etapa de pruebas:'),
           h('ul', { class: 'benefits' }, ['Peer Tutor con IA sobre cada ejercicio', 'Escáner: foto de tu procedimiento y retroalimentación', 'Exámenes simulados adaptativos', 'Reportar errores de ejercicios'].map((t) => h('li', {}, t))),
           h('p', { class: 'muted small' }, 'Avisaremos con tiempo antes de que algo empiece a tener costo.'),
@@ -398,11 +387,9 @@ export async function startApp(root, opts = {}) {
       return;
     }
     const intro =
-      reason === 'limit'
-        ? `Llegaste al límite de consultas de hoy (${L.DAILY_LIMITS[state.plan]}). Se renuevan mañana, o pasa a Pro para seguir.`
-        : reason === 'exam'
-          ? 'Los exámenes simulados son parte de ElaMath Pro (y de tu prueba gratis).'
-          : 'Más consultas, exámenes simulados y tutoría personalizada para llegar más lejos en tus materias.';
+      reason === 'exam'
+        ? 'Los exámenes simulados son parte de ElaMath Pro (y de tu prueba gratis).'
+        : 'Tutoría personalizada, exámenes simulados y revisión de tus procedimientos para llegar más lejos en tus materias.';
 
     let status = null;
     if (account) {
@@ -415,7 +402,7 @@ export async function startApp(root, opts = {}) {
       ? 'Versión de demostración: todavía no hay cobros. Puedes activar Pro de prueba solo en este dispositivo.'
       : null;
     const primary = demo
-      ? h('button', { class: 'btn btn-primary', type: 'button', id: 'toggle-plan', onclick: async () => { await credits.setPlan(pro ? 'free' : 'pro'); closeDialog(dlg); render(); } }, pro ? 'Volver al plan Gratis' : 'Activar Pro de prueba')
+      ? h('button', { class: 'btn btn-primary', type: 'button', id: 'toggle-plan', onclick: () => { state = { ...state, plan: pro ? 'free' : 'pro' }; persist(); closeDialog(dlg); render(); } }, pro ? 'Volver al plan Gratis' : 'Activar Pro de prueba')
       : account
         ? null
         : h('button', { class: 'btn btn-primary', type: 'button', id: 'pro-login', onclick: () => { closeDialog(dlg); openAccount(); } }, `Entrar y empezar mis ${bill.trialDays} días gratis`);
@@ -438,7 +425,6 @@ export async function startApp(root, opts = {}) {
         h('p', {}, intro),
         status ? h('p', { class: 'trial-status', id: 'trial-status' }, status) : null,
         h('ul', { class: 'benefits' }, [
-          `Hasta ${L.DAILY_LIMITS.pro} consultas de paso a paso al día (uso justo)`,
           'Exámenes simulados adaptativos de 10 reactivos y 20 minutos',
           demo ? 'Escáner de apuntes manuscritos (próximamente)' : 'Escáner de apuntes: foto de tu procedimiento y retroalimentación',
           demo ? 'Peer Tutor con IA (próximamente)' : 'Peer Tutor con IA: tutoría personalizada sobre cada ejercicio',

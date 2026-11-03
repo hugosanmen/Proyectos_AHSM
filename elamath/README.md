@@ -93,7 +93,7 @@ npm run build:public   # lo que ejecuta Vercel: copia solo la app a ./public
 ## Estructura
 ```
 index.html styles.css manifest.json sw.js      app (PWA)
-js/      main, app, api, richtext, logic, exam, image, db, credits, curriculum, engine/ (plantillas por nivel)
+js/      main, app, api, richtext, logic, exam, image, db, curriculum, engine/ (plantillas por nivel)
 api/     funciones de Vercel (11)              server/  config, llm, auth, quota, promo, scan, tutor, prompt, reports, store, mail, routes
 tools/   build.mjs, dev-server.mjs, e2e.mjs   test/    pruebas
 vercel.json  CSP estricta y cabeceras; publica solo public/

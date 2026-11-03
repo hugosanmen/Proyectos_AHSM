@@ -50,45 +50,6 @@ describe('dominio por tema', () => {
   });
 });
 
-describe('créditos diarios', () => {
-  const D1 = '2026-10-20';
-  const D2 = '2026-10-21';
-
-  it('estado inicial: 10/10 en plan gratis', () => {
-    assert.deepEqual(L.creditsStatus(null, D1, 'free'), { used: 0, limit: 10, remaining: 10, plan: 'free' });
-  });
-
-  it('consume hasta agotar y luego rechaza sin mutar', () => {
-    let c = null;
-    for (let i = 0; i < 10; i++) {
-      const r = L.consumeCredit(c, D1, 'free');
-      assert.equal(r.ok, true);
-      c = r.credits;
-    }
-    assert.equal(L.creditsStatus(c, D1, 'free').remaining, 0);
-    const antes = JSON.stringify(c);
-    const r = L.consumeCredit(c, D1, 'free');
-    assert.equal(r.ok, false);
-    assert.equal(JSON.stringify(r.credits), antes);
-  });
-
-  it('se reinician al cambiar de día', () => {
-    const agotado = { date: D1, used: 10 };
-    assert.equal(L.creditsStatus(agotado, D2, 'free').remaining, 10);
-    assert.equal(L.consumeCredit(agotado, D2, 'free').ok, true);
-  });
-
-  it('Pro tiene un tope de uso justo mayor, no ilimitado', () => {
-    assert.equal(L.creditsStatus(null, D1, 'pro').limit, 150);
-    assert.equal(L.consumeCredit({ date: D1, used: 150 }, D1, 'pro').ok, false);
-    assert.equal(L.consumeCredit({ date: D1, used: 11 }, D1, 'pro').ok, true);
-  });
-
-  it('plan desconocido se trata como gratis', () => {
-    assert.equal(L.creditsStatus(null, D1, 'otro').limit, 10);
-  });
-});
-
 describe('racha', () => {
   it('dayDiff cruza meses y años', () => {
     assert.equal(L.dayDiff('2026-10-31', '2026-11-01'), 1);
@@ -183,5 +144,13 @@ describe('avance de dominio visible', () => {
     assert.equal(L.masteryShown([]), 0);
     const ocho = [true, true, true, true, true, true, false, false];
     assert.equal(L.masteryShown(ocho), L.masteryRatio(ocho));
+  });
+});
+
+describe('estado anterior', () => {
+  it('quita el contador obsoleto de paso a paso y conserva el progreso', () => {
+    const s = L.normalizeState({ ...L.defaultState(), xp: 25, credits: { date: '2026-11-01', used: 10 } });
+    assert.equal(s.xp, 25);
+    assert.equal('credits' in s, false);
   });
 });

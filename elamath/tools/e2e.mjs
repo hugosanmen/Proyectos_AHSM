@@ -172,7 +172,7 @@ try {
       await p2.waitForSelector('#dev-link');
       await p2.click('#dev-link');
       await p2.waitForSelector('#account-chip:has-text("Cuenta")');
-      await p2.click('#credits-chip');
+      await p2.click('#plans-chip');
       const t = await p2.textContent('#pro-dialog');
       ok(/etapa de pruebas/.test(t) && !/\$|MXN/.test(t), 'el modal habla de precios');
       await p2.click('#close-pro');
