@@ -177,3 +177,37 @@ describe('temas para repasar', () => {
     assert.deepEqual(L.weakTopics(null), []);
   });
 });
+
+describe('progreso entre dispositivos', () => {
+  const P = (x) => L.normalizeProgress(x);
+  it('normalizeProgress limpia datos inválidos y no deja pasar campos locales', () => {
+    const p = P({ xp: -5, stats: { answered: 2, correct: 9 }, topics: { A: { recent: [true, 'x'] }, B: 3 }, streak: { count: 2, last: 'ayer' }, plan: 'pro', activeExam: {}, exams: [{}] });
+    assert.deepEqual([p.xp, p.stats.correct, p.topics, p.streak, p.exams], [0, 2, { A: { recent: [true] } }, null, []]);
+    assert.equal('plan' in p, false);
+    assert.equal('activeExam' in p, false);
+    assert.equal(Object.keys(P(null).topics).length, 0);
+  });
+  it('gana quien más ha practicado y se completa con lo que le falta', () => {
+    const a = P({ xp: 100, stats: { answered: 20, correct: 10 }, topics: { A: { recent: [true] } }, homeLevel: 2 });
+    const b = P({ xp: 120, stats: { answered: 5, correct: 5 }, topics: { A: { recent: [false] }, B: { recent: [true] } } });
+    const m = L.mergeProgress(a, b);
+    assert.deepEqual([m.xp, m.stats.answered, m.topics.A.recent, m.topics.B.recent, m.homeLevel], [120, 20, [true], [true], 2]);
+  });
+  it('une exámenes sin duplicar y es estable al repetirse', () => {
+    const e = (at, score) => ({ at, label: 'X', score, correct: 1, total: 10, seconds: 5 });
+    const a = P({ stats: { answered: 2 }, exams: [e('2026-11-01', 1), e('2026-11-03', 3)] });
+    const b = P({ stats: { answered: 1 }, exams: [e('2026-11-02', 2), e('2026-11-03', 3)] });
+    const m = L.mergeProgress(a, b);
+    assert.deepEqual(m.exams.map((x) => x.score), [1, 2, 3]);
+    assert.deepEqual(L.mergeProgress(m, b), m);
+  });
+  it('la racha más reciente manda y un reinicio gana aunque tenga menos avance', () => {
+    const viejo = P({ xp: 500, stats: { answered: 100, correct: 9 }, streak: { count: 9, last: '2026-11-01' } });
+    const nuevo = P({ xp: 5, stats: { answered: 1, correct: 1 }, streak: { count: 1, last: '2026-11-02' } });
+    assert.equal(L.mergeProgress(viejo, nuevo).streak.count, 1);
+    const reinicio = P({ epoch: 7 });
+    assert.equal(L.mergeProgress(viejo, reinicio).xp, 0);
+    assert.equal(L.mergeProgress(reinicio, viejo).xp, 0);
+    assert.equal(L.mergeProgress(null, reinicio).epoch, 7);
+  });
+});

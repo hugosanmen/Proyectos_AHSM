@@ -98,7 +98,7 @@ api/     funciones de Vercel (11)              server/  config, llm, auth, quota
 tools/   build.mjs, dev-server.mjs, e2e.mjs   test/    pruebas
 vercel.json  CSP estricta y cabeceras; publica solo public/
 ```
-El plan Hobby de Vercel permite 12 funciones; hoy hay 11. Si agregas más, une rutas en una sola función antes de pasar el límite.
+El plan Hobby de Vercel permite 12 funciones; hoy hay 12, así que ya no caben más. Si necesitas otra, une rutas en una sola función antes de pasar el límite.
 
 ## Despliegue
 1. Sube la carpeta a un repositorio de GitHub e impórtalo en Vercel (Framework: Other; el resto lo toma de `vercel.json`).

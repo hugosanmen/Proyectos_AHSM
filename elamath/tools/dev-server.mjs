@@ -18,7 +18,7 @@ import { llmConfigured } from '../server/llm.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
-const API = ['health', 'me', 'tutor', 'report', 'auth/request', 'auth/verify', 'admin/plan', 'admin/reports', 'admin/promo', 'promo/redeem', 'scan'];
+const API = ['health', 'me', 'progress', 'tutor', 'report', 'auth/request', 'auth/verify', 'admin/plan', 'admin/reports', 'admin/promo', 'promo/redeem', 'scan'];
 
 const vercel = JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'));
 const headerRules = vercel.headers.map((r) => ({ re: new RegExp(`^${r.source.replace(/\(\.\*\)/g, '.*')}$`), headers: r.headers }));

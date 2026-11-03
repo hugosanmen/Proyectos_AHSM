@@ -83,8 +83,12 @@ export async function startApp(root, opts = {}) {
   const online = () => globalThis.navigator?.onLine !== false;
 
   let state = await store.load();
-  const persist = () => {
+  const save = () => {
     Promise.resolve(store.save(state)).catch(() => {});
+  };
+  const persist = () => {
+    save();
+    scheduleSync();
   };
 
   let view = 'home';
@@ -93,6 +97,9 @@ export async function startApp(root, opts = {}) {
   let account = api.cachedAccount(); // { email, plan:'trial'|'pro'|'free', trial, billing, tutor:{used,limit,remaining} } | null
   let examView = null; // { exam, item, result } mientras hay un examen simulado
   let examTimer = null;
+  let syncTimer = null;
+  let syncBusy = false;
+  let lastSynced = '';
   const prepare = opts.prepareImage ?? prepareImage;
   const nowMs = () => now().getTime();
   const ui = {
@@ -151,6 +158,43 @@ export async function startApp(root, opts = {}) {
       backend.available &&
         h('button', { class: 'chip chip-btn', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, accountText),
     );
+  }
+
+  // ── Progreso en la cuenta ─────────────────────────────────────
+  const SYNC_DELAY_MS = 20_000; // agrupa varios ejercicios en un solo envío
+  const progressText = (s) => JSON.stringify(L.normalizeProgress(s));
+
+  function scheduleSync() {
+    clearTimeout(syncTimer);
+    if (account && progressText(state) !== lastSynced) syncTimer = setTimeout(syncProgress, opts.syncDelayMs ?? SYNC_DELAY_MS);
+  }
+
+  /** Une el progreso local con el de la cuenta. Falla en silencio: se reintenta con el siguiente cambio. */
+  async function syncProgress() {
+    if (!account || syncBusy || !online()) return;
+    clearTimeout(syncTimer);
+    syncBusy = true;
+    const email = account.email;
+    const foreign = state.syncEmail !== null && state.syncEmail !== email; // este progreso es de otra cuenta
+    const before = progressText(state);
+    try {
+      const out = await api.syncProgress(L.normalizeProgress(foreign ? L.defaultState() : state));
+      const recovered = out.progress.stats.answered > state.stats.answered;
+      if (progressText(state) !== before) return; // hubo actividad durante el envío: se reenvía con ese cambio
+      state = { ...state, ...out.progress, syncEmail: email };
+      lastSynced = progressText(state);
+      save();
+      if (lastSynced !== before) {
+        if (view === 'home') render();
+        else renderHud();
+      }
+      if (recovered) toast('Recuperamos el progreso de tu cuenta.');
+    } catch {
+      /* sin red o límite alcanzado: el progreso local sigue a salvo */
+    } finally {
+      syncBusy = false;
+      scheduleSync();
+    }
   }
 
   // ── Navegación ────────────────────────────────────────────────
@@ -380,8 +424,9 @@ export async function startApp(root, opts = {}) {
   }
 
   function resetProgress() {
-    if (!globalThis.confirm?.('¿Seguro que quieres borrar todo tu progreso en este dispositivo? No se puede deshacer.')) return;
-    state = L.defaultState();
+    if (!globalThis.confirm?.(account ? '¿Seguro que quieres borrar todo tu progreso en este dispositivo y en tu cuenta? No se puede deshacer.' : '¿Seguro que quieres borrar todo tu progreso en este dispositivo? No se puede deshacer.')) return;
+    // Sin sesión no cambia epoch: reiniciar este dispositivo no debe borrar después una cuenta ajena a él.
+    state = { ...L.defaultState(), epoch: account ? Math.max(Date.now(), state.epoch + 1) : state.epoch, syncEmail: state.syncEmail };
     syncPlan();
     persist();
     goHome();
@@ -716,11 +761,11 @@ export async function startApp(root, opts = {}) {
         h('p', { class: 'muted', id: 'plan-line' }, planLine),
         h('p', { class: 'muted' }, tutorLine),
         billingOn() ? promoForm() : null,
-        h('p', { class: 'muted small' }, 'Tu progreso de práctica se guarda en este dispositivo.'),
+        h('p', { class: 'muted small', id: 'sync-line' }, 'Tu progreso se guarda en tu cuenta y te sigue entre dispositivos.'),
         h(
           'div',
           { class: 'actions' },
-          h('button', { class: 'btn', type: 'button', id: 'logout-btn', onclick: () => { api.logout(); account = null; syncPlan(); closeDialog(dlg); render(); toast('Cerraste sesión.'); } }, 'Cerrar sesión'),
+          h('button', { class: 'btn', type: 'button', id: 'logout-btn', onclick: () => { syncProgress(); clearTimeout(syncTimer); api.logout(); account = null; syncPlan(); closeDialog(dlg); render(); toast('Cerraste sesión.'); } }, 'Cerrar sesión'),
           h('button', { class: 'btn btn-ghost', type: 'button', id: 'close-account', onclick: () => closeDialog(dlg) }, 'Cerrar'),
         ),
       ];
@@ -750,7 +795,7 @@ export async function startApp(root, opts = {}) {
           },
           h('label', { for: 'email-input' }, 'Correo electrónico'),
           input,
-          h('p', { class: 'muted small', id: 'email-help' }, 'Usamos tu correo solo para tu cuenta y para contar tus mensajes del tutor. No lo compartimos.'),
+          h('p', { class: 'muted small', id: 'email-help' }, 'Usamos tu correo solo para tu cuenta, guardar tu progreso y contar tus mensajes del tutor. No lo compartimos.'),
           u.status ? h('p', { class: 'form-error', id: 'login-status', role: 'alert' }, u.status) : null,
           h(
             'div',
@@ -1300,6 +1345,7 @@ export async function startApp(root, opts = {}) {
 
   // Al volver la red se quitan los avisos de «sin conexión»; lo escrito se conserva.
   function onOnline() {
+    syncProgress();
     const chat = practice?.chat;
     if (chat?.notice === TUTOR_ERRORS.network) {
       chat.notice = '';
@@ -1340,7 +1386,10 @@ export async function startApp(root, opts = {}) {
           /* no crítico */
         }
       }
-      if (backend.available && api.hasSession()) await refreshAccount();
+      if (backend.available && api.hasSession()) {
+        await refreshAccount();
+        await syncProgress();
+      }
       else syncPlan();
       if (backend.available || loggedNow) render(); // sin backend no hay nada nuevo que dibujar
       if (linkExpired) {
@@ -1358,6 +1407,10 @@ export async function startApp(root, opts = {}) {
   const ready = initBackend();
 
   window.addEventListener?.('popstate', applyRoute);
+  const onHidden = () => {
+    if (document.visibilityState === 'hidden' && progressText(state) !== lastSynced) syncProgress();
+  };
+  document.addEventListener('visibilitychange', onHidden);
   resumeExam();
   if (!examView && window.location?.hash) applyRoute();
   else render();
@@ -1367,6 +1420,7 @@ export async function startApp(root, opts = {}) {
     go,
     ready,
     /** Solo para pruebas. */
+    _sync: syncProgress,
     _practice: () => practice,
     _backend: () => backend,
     _account: () => account,
@@ -1377,6 +1431,8 @@ export async function startApp(root, opts = {}) {
       document.removeEventListener('keydown', onKey);
       window.removeEventListener?.('online', onOnline);
       window.removeEventListener?.('popstate', applyRoute);
+      document.removeEventListener('visibilitychange', onHidden);
+      clearTimeout(syncTimer);
     },
   };
 }

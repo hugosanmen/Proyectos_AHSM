@@ -7,6 +7,7 @@ import { authenticate, getUser, normalizeEmail, requestLogin, uidFor, verifyLogi
 import { safeEqual } from './crypto.js';
 import { effectivePlan, quotaStatus, refund, reserve, trialInfo } from './quota.js';
 import { createPromo, listPromos, redeemPromo } from './promo.js';
+import { syncProgress } from './progress.js';
 import { askScan, parseScanRequest } from './scan.js';
 import { llmConfigured } from './llm.js';
 import { listReports, submitReport } from './reports.js';
@@ -62,6 +63,8 @@ export const routes = {
       tutor: await quotaStatus(auth.uid, plan, deps),
     });
   },
+
+  progress: syncProgress,
 
   async tutor(ctx, deps) {
     const { config, now } = deps;

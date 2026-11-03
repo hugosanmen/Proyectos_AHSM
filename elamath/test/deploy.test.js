@@ -74,7 +74,7 @@ describe('funciones de la API', () => {
     assert.ok(files.length <= 12, `hay ${files.length}`);
   });
   it('cada ruta pública de la API tiene su archivo', () => {
-    for (const r of ['health', 'me', 'tutor', 'report', 'scan', 'auth/request', 'auth/verify', 'admin/plan', 'admin/reports', 'admin/promo', 'promo/redeem']) {
+    for (const r of ['health', 'me', 'progress', 'tutor', 'report', 'scan', 'auth/request', 'auth/verify', 'admin/plan', 'admin/reports', 'admin/promo', 'promo/redeem']) {
       assert.ok(files.includes(`${r}.js`), r);
     }
   });

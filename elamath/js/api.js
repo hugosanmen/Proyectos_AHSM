@@ -17,6 +17,7 @@ export class ApiError extends Error {
 // El servidor corta antes (12 s y 20 s) para poder devolver el mensaje sin descontarlo.
 const TUTOR_TIMEOUT_MS = 15_000;
 const SCAN_TIMEOUT_MS = 24_000;
+const SYNC_TIMEOUT_MS = 8_000;
 const SESSION_KEY = 'elamath:session';
 const ACCOUNT_KEY = 'elamath:account';
 
@@ -150,6 +151,8 @@ export function createApi({ fetchFn, storage, base = '' } = {}) {
     },
     /** Escáner de apuntes: { image:{mediaType,data}, message? } → { reply, tutor }. */
     scan: (payload) => request('/api/scan', { method: 'POST', body: payload, auth: true, timeoutMs: SCAN_TIMEOUT_MS }),
+    /** Envía el progreso local y devuelve el progreso fusionado de la cuenta. */
+    syncProgress: (progress) => request('/api/progress', { method: 'POST', body: { progress }, auth: true, timeoutMs: SYNC_TIMEOUT_MS }),
     report: (payload) => request('/api/report', { method: 'POST', body: payload }),
     logout: clearSession,
   };

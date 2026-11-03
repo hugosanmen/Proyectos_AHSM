@@ -298,3 +298,36 @@ describe('adaptador HTTP (wrap)', () => {
     assert.equal(body, undefined);
   });
 });
+
+describe('POST /api/progress', () => {
+  it('exige sesión y un cuerpo válido', async () => {
+    const { deps, sent } = makeDeps();
+    assert.equal((await routes.progress({ headers: {}, body: { progress: {} } }, deps)).status, 401);
+    const { headers } = await loginAs(routes, deps, sent);
+    assert.deepEqual((await routes.progress({ headers, body: {} }, deps)).body, { code: 'bad_progress' });
+  });
+  it('guarda y fusiona entre dispositivos, aislado por cuenta', async () => {
+    const { deps, sent } = makeDeps();
+    const { headers } = await loginAs(routes, deps, sent);
+    const uno = await routes.progress({ headers, body: { progress: { xp: 30, stats: { answered: 3, correct: 3 }, topics: { A: { recent: [true] } } } } }, deps);
+    assert.equal(uno.body.progress.xp, 30);
+    const dos = await routes.progress({ headers, body: { progress: {} } }, deps);
+    assert.deepEqual([dos.body.progress.xp, dos.body.progress.stats.answered, dos.body.progress.topics.A.recent], [30, 3, [true]]);
+    const otra = await loginAs(routes, deps, sent, 'beto@correo.com');
+    assert.equal((await routes.progress({ headers: otra.headers, body: { progress: {} } }, deps)).body.progress.xp, 0);
+  });
+  it('limita el ritmo por cuenta', async () => {
+    const { deps, sent } = makeDeps();
+    const { headers } = await loginAs(routes, deps, sent);
+    let last;
+    for (let i = 0; i < 241; i++) last = await routes.progress({ headers, body: { progress: {} } }, deps);
+    assert.deepEqual([last.status, last.body.code], [429, 'rate_limited']);
+  });
+  it('un registro dañado no bloquea el guardado', async () => {
+    const { deps, sent } = makeDeps();
+    const { headers } = await loginAs(routes, deps, sent);
+    await routes.progress({ headers, body: { progress: {} } }, deps);
+    for (const k of deps.store.m.keys()) if (k.startsWith('progress:')) await deps.store.set(k, 'no-es-json');
+    assert.equal((await routes.progress({ headers, body: { progress: { xp: 9 } } }, deps)).body.progress.xp, 9);
+  });
+});

@@ -31,7 +31,7 @@ const memStore = () => {
 
 /** fetch de prueba que despacha a las rutas reales del servidor. */
 function bridge(deps, { offline = false, absent = false } = {}) {
-  const table = { '/api/health': 'health', '/api/me': 'me', '/api/tutor': 'tutor', '/api/report': 'report', '/api/auth/request': 'authRequest', '/api/auth/verify': 'authVerify', '/api/promo/redeem': 'promoRedeem', '/api/scan': 'scan' };
+  const table = { '/api/health': 'health', '/api/me': 'me', '/api/progress': 'progress', '/api/tutor': 'tutor', '/api/report': 'report', '/api/auth/request': 'authRequest', '/api/auth/verify': 'authVerify', '/api/promo/redeem': 'promoRedeem', '/api/scan': 'scan' };
   const log = [];
   const fetchFn = async (url, init = {}) => {
     log.push({ url, init });
@@ -837,5 +837,67 @@ describe('interfaz: textos y jerarquía', () => {
   });
   it('el selector del escáner permite elegir de la galería', () => {
     assert.doesNotMatch(readFileSync(fileURLToPath(new URL('../js/app.js', import.meta.url)), 'utf8'), /capture:/);
+  });
+});
+
+describe('progreso en la cuenta', () => {
+  const practicar = async (c) => {
+    await c.click(c.q('.topic .btn'));
+    await c.click(c.q('.option[data-option="0"]'));
+    await c.app._sync();
+    await tick(5);
+    return c.app.getState();
+  };
+
+  it('otro dispositivo recupera el progreso al entrar', async () => {
+    const { deps, sent } = makeDeps();
+    const a = await mountLoggedIn(deps, sent);
+    const st = await practicar(a);
+    assert.equal(st.stats.answered, 1);
+    assert.equal(st.syncEmail, 'ana@correo.com');
+    a.app.destroy();
+    const b = await mount({ deps, storage: a.storage });
+    assert.equal(b.app.getState().stats.answered, 1);
+    assert.match(b.q('#toast').textContent, /Recuperamos/);
+    await b.click(b.q('#account-chip'));
+    assert.match(b.q('#sync-line').textContent, /en tu cuenta/);
+  });
+
+  it('el progreso anónimo pasa a la cuenta la primera vez', async () => {
+    const { deps, sent } = makeDeps();
+    const store = { saved: null, load: async () => L.normalizeState({ ...L.defaultState(), xp: 40, stats: { answered: 4, correct: 4 } }), save: async () => {} };
+    const c = await mountLoggedIn(deps, sent, { store });
+    await c.app._sync();
+    assert.equal(c.app.getState().xp, 40);
+    assert.equal(c.app.getState().syncEmail, 'ana@correo.com');
+  });
+
+  it('otra cuenta en el mismo dispositivo no hereda ese progreso', async () => {
+    const { deps, sent } = makeDeps();
+    const ajeno = { load: async () => L.normalizeState({ ...L.defaultState(), xp: 70, stats: { answered: 7, correct: 7 }, syncEmail: 'otra@correo.com' }), save: async () => {} };
+    const c = await mountLoggedIn(deps, sent, { store: ajeno });
+    assert.equal(c.app.getState().xp, 0);
+    assert.equal(c.app.getState().syncEmail, 'ana@correo.com');
+  });
+
+  it('reiniciar con sesión también borra la cuenta', async () => {
+    const { deps, sent } = makeDeps();
+    const a = await mountLoggedIn(deps, sent);
+    await practicar(a);
+    await a.click(a.q('.practice-head .btn'));
+    await a.click([...a.doc.querySelectorAll('button')].find((b) => b.textContent === 'Reiniciar progreso'));
+    await a.app._sync();
+    assert.equal(a.app.getState().stats.answered, 0);
+    a.app.destroy();
+    const b = await mount({ deps, storage: a.storage });
+    assert.equal(b.app.getState().stats.answered, 0);
+  });
+
+  it('sin sesión no se llama al servidor', async () => {
+    const { deps } = makeDeps();
+    const c = await mount({ deps });
+    await c.click(c.q('.topic .btn'));
+    await c.app._sync();
+    assert.equal(c.b.log.filter((x) => /progress/.test(x.url)).length, 0);
   });
 });

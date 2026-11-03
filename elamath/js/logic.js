@@ -94,6 +94,66 @@ export function normalizeExams(raw) {
     .slice(-EXAM_HISTORY);
 }
 
+// ── Progreso en la cuenta ───────────────────────────────────────
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const count = (v, max = 1e7) => (Number.isFinite(v) && v >= 0 ? Math.min(Math.floor(v), max) : 0);
+
+/** Solo lo que viaja entre dispositivos, ya limpio: nunca se confía en lo que llega. */
+export function normalizeProgress(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const answered = count(r.stats?.answered);
+  const topics = {};
+  for (const [name, t] of Object.entries(r.topics && typeof r.topics === 'object' ? r.topics : {}).slice(0, 120)) {
+    if (name.length <= 80 && Array.isArray(t?.recent)) topics[name] = { recent: t.recent.filter((x) => typeof x === 'boolean').slice(-MASTERY_WINDOW) };
+  }
+  const streak = DAY_RE.test(r.streak?.last ?? '') ? { count: Math.max(1, count(r.streak.count)), last: r.streak.last } : null;
+  const lp = r.lastPractice;
+  return {
+    epoch: count(r.epoch, Number.MAX_SAFE_INTEGER),
+    xp: count(r.xp),
+    stats: { answered, correct: Math.min(count(r.stats?.correct), answered) },
+    topics,
+    streak,
+    exams: normalizeExams(r.exams),
+    welcomed: r.welcomed === true,
+    homeLevel: Number.isInteger(r.homeLevel) && r.homeLevel >= 1 && r.homeLevel <= 5 ? r.homeLevel : null,
+    lastPractice: typeof lp?.subjectId === 'string' && lp.subjectId.length <= 60 ? { subjectId: lp.subjectId, topic: typeof lp.topic === 'string' && lp.topic.length <= 80 ? lp.topic : null } : null,
+  };
+}
+
+/**
+ * Une el progreso de dos dispositivos. Un reinicio (epoch mayor) manda sobre todo. Si no, gana el que más ejercicios
+ * lleva; el otro solo aporta lo que al primero le falta. Sin historial de eventos no se pueden sumar dos avances
+ * paralelos: es preferible conservar el mayor a inflar los números.
+ */
+export function mergeProgress(a, b) {
+  if (!a || !b) return a ?? b;
+  if (a.epoch !== b.epoch) return a.epoch > b.epoch ? a : b;
+  const [base, other] = a.stats.answered >= b.stats.answered ? [a, b] : [b, a];
+  const seen = new Set();
+  const exams = [...other.exams, ...base.exams]
+    .filter((e) => {
+      const key = [e.at, e.label, e.score, e.correct, e.seconds].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((x, y) => x.at.localeCompare(y.at))
+    .slice(-EXAM_HISTORY);
+  const newer = (x, y) => (!x ? y : !y ? x : x.last !== y.last ? (x.last > y.last ? x : y) : x.count >= y.count ? x : y);
+  return {
+    epoch: base.epoch,
+    xp: Math.max(a.xp, b.xp),
+    stats: base.stats,
+    topics: { ...other.topics, ...base.topics },
+    streak: newer(base.streak, other.streak),
+    exams,
+    welcomed: a.welcomed || b.welcomed,
+    homeLevel: base.homeLevel ?? other.homeLevel,
+    lastPractice: base.lastPractice ?? other.lastPractice,
+  };
+}
+
 /** Valida el examen en curso guardado; si algo no cuadra se descarta (null). */
 export function normalizeActiveExam(raw) {
   const exercise = (ex) => Boolean(ex && Array.isArray(ex.options) && ex.options.length > 0 && ex.statement && typeof ex.topic === 'string');
@@ -118,6 +178,8 @@ export const defaultState = () => ({
   welcomed: false, // ya vio (o saltó) la bienvenida
   homeLevel: null, // nivel 1 a 5 que se abre al iniciar
   lastPractice: null, // { subjectId, topic } para «Continuar»
+  epoch: 0, // cambia al reiniciar con sesión, para que el reinicio llegue a los demás dispositivos
+  syncEmail: null, // cuenta dueña de este progreso
 });
 
 /** Mezcla lo guardado con los valores por defecto; descarta estados de versión desconocida. */
@@ -137,6 +199,8 @@ export function normalizeState(raw) {
     welcomed: raw.welcomed === true,
     homeLevel: Number.isInteger(raw.homeLevel) && raw.homeLevel >= 1 && raw.homeLevel <= 5 ? raw.homeLevel : null,
     lastPractice: typeof raw.lastPractice?.subjectId === 'string' ? { subjectId: raw.lastPractice.subjectId, topic: typeof raw.lastPractice.topic === 'string' ? raw.lastPractice.topic : null } : null,
+    epoch: Number.isFinite(raw.epoch) && raw.epoch >= 0 ? raw.epoch : 0,
+    syncEmail: typeof raw.syncEmail === 'string' ? raw.syncEmail : null,
   };
 }
 
