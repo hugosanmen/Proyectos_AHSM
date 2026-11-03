@@ -2,7 +2,7 @@
 // retroalimentación socrática sobre el primer error. El modelo con visión corre en el servidor.
 
 import { BadRequest } from './tutor.js';
-import { chat } from './llm.js';
+import { VISION_TIMEOUT_MS, chat } from './llm.js';
 
 export const MAX_IMAGE_B64 = 1_600_000; // ~1.2 MB de imagen; el cliente la reduce antes de enviar
 const TYPES = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -45,6 +45,7 @@ export async function askScan(parsed, { config, fetchFn }) {
       system: [{ type: 'text', text: SCAN_PROMPT, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: [{ type: 'image', mediaType: parsed.mediaType, data: parsed.data }, { type: 'text', text }] }],
       maxTokens: 700,
+      timeoutMs: VISION_TIMEOUT_MS,
     },
     fetchFn,
   );

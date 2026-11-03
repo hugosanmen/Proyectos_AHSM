@@ -26,7 +26,8 @@ describe('index.html', () => {
   });
 
   it('no depende de ningún recurso externo (funciona 100 % offline)', () => {
-    assert.ok(!/(?:href|src)="https?:/.test(html), 'hay recursos externos');
+    const sinCanonical = html.replace(/<link rel="canonical"[^>]*>/, ''); // es metadato para buscadores, no se descarga
+    assert.ok(!/(?:href|src)="https?:/.test(sinCanonical), 'hay recursos externos');
   });
 
   it('tiene lo mínimo de una PWA accesible', () => {
@@ -37,6 +38,14 @@ describe('index.html', () => {
     assert.match(html, /apple-touch-icon/);
     assert.match(html, /<main id="app"/);
     assert.match(html, /no está afiliado a ninguna institución educativa/);
+  });
+
+  it('tiene datos para buscadores y para compartir', () => {
+    assert.match(html, /property="og:image" content="https:[^"]+og-image\.png"/);
+    assert.match(html, /rel="canonical"/);
+    assert.ok(existsSync(join(ROOT, 'icons/og-image.png')));
+    assert.match(read('robots.txt'), /Sitemap: https:.*sitemap\.xml/);
+    assert.match(read('sitemap.xml'), /<loc>https:/);
   });
 
   it('carga KaTeX antes que el módulo de la app', () => {

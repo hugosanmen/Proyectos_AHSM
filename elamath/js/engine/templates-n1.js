@@ -2,7 +2,7 @@
 // Misma forma que templates.js. Las respuestas simbólicas añaden `vars: ['x']` (variables libres) para que
 // las pruebas puedan compararlas numéricamente.
 
-import { fr, safeFr, ansOf, num, dFr, compact, comb, terms, co, lin, TRIPLES, intNot, polyLatex, uniqueDistractors, numericDistractors } from './helpers.js';
+import { fr, safeFr, ansOf, num, dFr, compact, comb, terms, co, lin, xPow, TRIPLES, intNot, polyLatex, uniqueDistractors, numericDistractors } from './helpers.js';
 
 export const templatesN1 = [
   // ═════════════ ÁLGEBRA ═════════════
@@ -150,7 +150,7 @@ export const templatesN1 = [
       const coef = comb(n, k) * a ** (n - k);
       return {
         params: { n, k, a },
-        statement: { text: `¿Cuál es el coeficiente de x^${k} en el desarrollo de este binomio?`, latex: `(${polyLatex([a, 1])})^{${n}}` },
+        statement: { text: `¿Cuál es ${k === 0 ? 'el término independiente' : `el coeficiente de ${xPow(k)}`} en el desarrollo de este binomio?`, latex: `(${polyLatex([a, 1])})^{${n}}` },
         answer: ansOf(fr(coef)),
         steps: [
           { latex: `\\binom{${n}}{${k}}\\, x^{${k}}\\, (${a})^{${n - k}}`, note: 'El término con x^k es C(n,k) · x^k · a^(n−k).' },

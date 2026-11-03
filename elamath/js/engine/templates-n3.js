@@ -255,7 +255,7 @@ export const templatesN3 = [
       const val = fr(comb(n, k) * (m - 1) ** (n - k), m ** n);
       return {
         params: { n, k, m },
-        statement: { text: `Un experimento tiene probabilidad de éxito p = 1/${m}. Si se repite ${n} veces de forma independiente, ¿cuál es la probabilidad de exactamente ${k} éxitos?`, latex: `P(X=${k}),\\quad X\\sim \\text{Bin}\\left(${n},\\tfrac{1}{${m}}\\right)` },
+        statement: { text: `Un experimento tiene probabilidad de éxito p = 1/${m}. Si se repite ${n} veces de forma independiente, ¿cuál es la probabilidad de exactamente ${k} ${k === 1 ? 'éxito' : 'éxitos'}?`, latex: `P(X=${k}),\\quad X\\sim \\text{Bin}\\left(${n},\\tfrac{1}{${m}}\\right)` },
         answer: ansOf(val),
         steps: [
           { latex: `P(X=k)=\\binom{n}{k}p^{k}(1-p)^{n-k}`, note: 'Fórmula binomial.' },

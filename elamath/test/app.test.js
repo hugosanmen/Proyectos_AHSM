@@ -121,7 +121,7 @@ describe('práctica', () => {
     const p = await startMixed(c);
     assert.equal(c.qa('button.option').length, 4);
     assert.ok(c.qa('button.option').every((b) => b.querySelector('.katex')), 'cada opción renderiza LaTeX');
-    assert.ok(c.q('.question h2').textContent.length > 10);
+    assert.ok(c.q('.question h1').textContent.length > 10);
     assert.equal(c.q('.katex-error'), null);
     assert.ok(p.ex.templateId);
     assert.match(c.q('.dots').getAttribute('aria-label'), /Dificultad \d de 5/);

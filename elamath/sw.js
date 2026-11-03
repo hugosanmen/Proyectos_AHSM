@@ -5,7 +5,7 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = '592a4650f6c0';
+const VERSION = '3fd88c80af3f';
 // </build:version>
 
 // <build:precache>
@@ -16,6 +16,7 @@ const PRECACHE = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/icon.svg",
+  "./icons/og-image.png",
   "./index.html",
   "./js/api.js",
   "./js/app.js",
@@ -37,6 +38,8 @@ const PRECACHE = [
   "./js/main.js",
   "./js/richtext.js",
   "./manifest.json",
+  "./robots.txt",
+  "./sitemap.xml",
   "./styles.css",
   "./vendor/katex/LICENSE",
   "./vendor/katex/fonts/KaTeX_AMS-Regular.woff2",

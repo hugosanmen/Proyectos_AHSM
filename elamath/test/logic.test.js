@@ -176,3 +176,12 @@ describe('examen en curso guardado', () => {
     }
   });
 });
+
+describe('avance de dominio visible', () => {
+  it('un solo acierto no llena la barra; con 8 o más intentos coincide con el dominio real', () => {
+    assert.equal(L.masteryShown([true]), 1 / 8);
+    assert.equal(L.masteryShown([]), 0);
+    const ocho = [true, true, true, true, true, true, false, false];
+    assert.equal(L.masteryShown(ocho), L.masteryRatio(ocho));
+  });
+});

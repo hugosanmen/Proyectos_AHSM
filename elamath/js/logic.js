@@ -38,6 +38,8 @@ export const MASTERY_THRESHOLD = 0.8;
 
 export const recordResult = (recent, correct) => [...recent, !!correct].slice(-MASTERY_WINDOW);
 export const masteryRatio = (recent) => (recent.length ? recent.filter(Boolean).length / recent.length : 0);
+/** Avance visible: mientras haya menos de MASTERY_MIN_ATTEMPTS intentos, un solo acierto no llena la barra. */
+export const masteryShown = (recent) => recent.filter(Boolean).length / Math.max(recent.length, MASTERY_MIN_ATTEMPTS);
 export const isMastered = (recent) => recent.length >= MASTERY_MIN_ATTEMPTS && masteryRatio(recent) >= MASTERY_THRESHOLD;
 
 // ── Créditos (consultas de paso a paso) ─────────────────────────

@@ -53,6 +53,9 @@ export function cplx(re, im) {
   return `${re} ${im < 0 ? '-' : '+'} ${part}`;
 }
 
+/** Potencia de x para texto sin fórmula: xPow(1)→'x', xPow(3)→'x³'. */
+export const xPow = (k) => (k === 1 ? 'x' : `x${String(k).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d])}`);
+
 /** Ternas pitagóricas primitivas. */
 export const TRIPLES = [
   [3, 4, 5],

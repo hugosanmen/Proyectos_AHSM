@@ -139,3 +139,13 @@ describe('calidad del LaTeX y de ss-estabilidad', () => {
     for (const n of Object.values(count)) assert.ok(n / SEEDS > 0.25 && n / SEEDS < 0.42, JSON.stringify(count));
   });
 });
+
+describe('redacción de enunciados', () => {
+  it('sin x^n en texto, sin coeficiente 1 suelto, sin (s) y sin 1 éxitos', () => {
+    forEachSeed('alg-binomio', (ex) => assert.doesNotMatch(ex.statement.text, /\^/));
+    forEachSeed('ma-taylor', (ex) => assert.doesNotMatch(ex.statement.text, /\^/));
+    forEachSeed('ma-geometrica', (ex) => assert.doesNotMatch(ex.statement.latex, /infty\} 1/));
+    forEachSeed('ss-estabilidad', (ex) => assert.doesNotMatch(ex.statement.latex, /[{)]\(s\)/));
+    forEachSeed('pe-binomial', (ex) => assert.doesNotMatch(ex.statement.text, /\b1 éxitos/));
+  });
+});

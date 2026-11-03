@@ -1,6 +1,6 @@
 // templates-n4.js — Nivel 4: Matemáticas Avanzadas para Ingeniería, Análisis de Sistemas y Señales, Optimización.
 
-import { fr, safeFr, ansOf, num, dFr, compact, fact, terms, co, lin, polyLatex, intNot, uniqueDistractors, numericDistractors } from './helpers.js';
+import { fr, safeFr, ansOf, num, dFr, compact, fact, terms, co, lin, xPow, polyLatex, intNot, uniqueDistractors, numericDistractors } from './helpers.js';
 
 const gcd = (a, b) => (b === 0 ? Math.abs(a) : gcd(b, a % b));
 /** (n/d)·π en LaTeX, reducido. */
@@ -112,7 +112,7 @@ export const templatesN4 = [
       const S = fr(a * m, neg ? m + 1 : m - 1);
       return {
         params: { a, m, neg },
-        statement: { text: 'Calcula la suma de la serie geométrica (converge porque |r| < 1):', latex: `\\sum_{n=0}^{\\infty} ${a}\\left(${neg ? '-' : ''}\\tfrac{1}{${m}}\\right)^{n}` },
+        statement: { text: 'Calcula la suma de la serie geométrica (converge porque |r| < 1):', latex: `\\sum_{n=0}^{\\infty} ${a === 1 ? '' : a}\\left(${neg ? '-' : ''}\\tfrac{1}{${m}}\\right)^{n}` },
         answer: ansOf(S),
         steps: [
           { latex: `r=${r.toLatex()},\\quad |r|<1`, note: 'Identifica la razón r y verifica que |r| < 1.' },
@@ -163,7 +163,7 @@ export const templatesN4 = [
       const val = variant === 'exp' ? fr(a ** k, fact(k)) : fr((k % 2 === 0 ? -1 : 1) * a ** k, k);
       return {
         params: { variant, a, k },
-        statement: { text: `¿Cuál es el coeficiente de x^${k} en la serie de Maclaurin?`, latex: variant === 'exp' ? `f(x)=e^{${co(a, 'x')}}` : `f(x)=\\ln(1${a < 0 ? '-' : '+'}${Math.abs(a) === 1 ? '' : Math.abs(a)}x)` },
+        statement: { text: `¿Cuál es el coeficiente de ${xPow(k)} en la serie de Maclaurin?`, latex: variant === 'exp' ? `f(x)=e^{${co(a, 'x')}}` : `f(x)=\\ln(1${a < 0 ? '-' : '+'}${Math.abs(a) === 1 ? '' : Math.abs(a)}x)` },
         answer: ansOf(val),
         steps: variant === 'exp'
           ? [{ latex: 'e^{u}=\\sum_{n\\ge 0}\\frac{u^{n}}{n!}', note: 'Sustituye u = ax en la serie conocida de eᵘ.' }, { latex: `\\frac{(${a})^{${k}}}{${k}!}=${val.toLatex()}`, note: `El coeficiente de x^${k} es a^${k}/${k}!.` }]
@@ -293,9 +293,11 @@ export const templatesN4 = [
         'No se puede determinar': 'Sí se puede: los polos del denominador bastan para clasificarlo.',
       };
       const tex = (t) => `\\text{${t}}`;
+      const factor = (p) => (p === 0 ? 's' : `(${lin(p, 's')})`);
+      const poleDen = (a, b) => (a === 0 && b === 0 ? 's^{2}' : a === 0 ? `s${factor(b)}` : b === 0 ? `s${factor(a)}` : `${factor(a)}${factor(b)}`);
       return {
         params: { p1, p2 },
-        statement: { text: 'Un sistema LTI continuo tiene esta función de transferencia con polos reales. Según la ubicación de sus polos, ¿cómo se clasifica?', latex: `H(s)=\\frac{1}{(${lin(p1, 's')})(${lin(p2, 's')})}` },
+        statement: { text: 'Un sistema LTI continuo tiene esta función de transferencia con polos reales. Según la ubicación de sus polos, ¿cómo se clasifica?', latex: `H(s)=\\frac{1}{${poleDen(p1, p2)}}` },
         answer: { latex: tex(verdict) },
         steps: [
           { latex: `\\text{Polos: } s=${p1},\\; s=${p2}`, note: 'Los polos son las raíces del denominador.' },

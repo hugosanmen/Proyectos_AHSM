@@ -110,6 +110,7 @@ export async function startApp(root, opts = {}) {
   const billingOn = () => account?.billing?.enabled ?? backend.billing?.enabled ?? false; // ¿ya se cobra? (apagado en la etapa de pruebas)
   const billing = () => account?.billing ?? backend.billing ?? { priceMxn: PLANS.monthly, trialDays: 30, instructions: '' };
   const planName = () => (account?.plan === 'trial' ? 'Prueba gratis' : account?.plan === 'pro' ? 'Pro' : account?.plan === 'open' ? 'Acceso completo' : 'Gratis');
+  const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const fmtDate = (iso) => new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
 
   let toastTimer;
@@ -142,13 +143,14 @@ export async function startApp(root, opts = {}) {
     const st = await credits.status();
     const streak = L.currentStreak(state.streak, today());
     const tag = account?.plan === 'trial' ? 'Prueba · ' : account?.plan === 'open' ? '' : 'Pro · ';
-    const creditsText = st.plan === 'pro' ? `${tag}${st.remaining} consultas hoy` : `${st.remaining}/${st.limit} consultas hoy`;
+    const creditsCount = st.plan === 'pro' ? `${st.remaining}` : `${st.remaining}/${st.limit}`;
+    const creditsText = `${st.plan === 'pro' ? tag : ''}${creditsCount} consultas hoy`;
     const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? '⭐ Pro' : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
     put(
       hud,
       h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nv. ${info.level}`),
       h('span', { class: 'chip', 'aria-label': `Racha de ${streak} días` }, `🔥 ${streak}`),
-      h('button', { class: 'chip chip-btn', type: 'button', id: 'credits-chip', onclick: () => openPro('info'), 'aria-label': `${creditsText}. Abrir planes` }, creditsText),
+      h('button', { class: 'chip chip-btn', type: 'button', id: 'credits-chip', onclick: () => openPro('info'), 'aria-label': `${creditsText}. Abrir planes` }, h('span', { class: 'chip-long' }, st.plan === 'pro' ? tag : ''), creditsCount, h('span', { class: 'chip-long' }, ' consultas'), ' hoy'),
       backend.available &&
         h('button', { class: 'chip chip-btn', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, accountText),
     );
@@ -180,7 +182,7 @@ export async function startApp(root, opts = {}) {
       h('h1', { id: 'hero-title' }, `Nivel ${info.level} · ${info.title}`),
       progressBar(info.progress, 'Progreso hacia el siguiente nivel'),
       h('p', { class: 'muted' }, info.isMax ? 'Nivel máximo alcanzado.' : `${info.xpInto} / ${info.xpNeeded} XP para el siguiente nivel`),
-      h('p', { class: 'muted small' }, `${state.stats.correct} aciertos de ${state.stats.answered} intentos`),
+      h('p', { class: 'muted small' }, `${count(state.stats.correct, 'acierto')} de ${count(state.stats.answered, 'intento')}`),
       state.exams.length ? h('p', { class: 'muted small', id: 'last-exam' }, `Último examen simulado: ${state.exams.at(-1).score.toFixed(1)} / 10 (${state.exams.at(-1).label})`) : null,
     );
 
@@ -214,8 +216,9 @@ export async function startApp(root, opts = {}) {
     }
     const rows = subject.topics.map((topic) => {
       const recent = state.topics[topic]?.recent ?? [];
-      const ratio = L.masteryRatio(recent);
-      const label = recent.length === 0 ? 'Sin intentos' : `Dominio ${Math.round(ratio * 100)}%${L.isMastered(recent) ? ' · ¡Dominado!' : ''}`;
+      const measured = recent.length >= L.MASTERY_MIN_ATTEMPTS;
+      const ratio = L.masteryShown(recent);
+      const label = recent.length === 0 ? 'Sin intentos' : measured ? `Dominio ${Math.round(ratio * 100)}%${L.isMastered(recent) ? ' · ¡Dominado!' : ''}` : `${recent.length} de ${L.MASTERY_MIN_ATTEMPTS} intentos para medir tu dominio`;
       return h(
         'li',
         { class: 'topic' },
@@ -304,7 +307,7 @@ export async function startApp(root, opts = {}) {
       : h('button', { class: 'btn', type: 'button', id: 'explain-btn', onclick: explain }, 'Ver paso a paso (usa 1 consulta)');
     const tutorBtn = backend.available ? h('button', { class: 'btn', type: 'button', id: 'tutor-btn', onclick: openTutor }, '💬 Peer Tutor') : null;
     const scanBtn = backend.available && backend.scan !== false ? h('button', { class: 'btn', type: 'button', id: 'scan-btn', onclick: openScan }, '📷 Revisar mi procedimiento') : null;
-    const nextBtn = h('button', { class: 'btn btn-primary', type: 'button', id: 'next-btn', onclick: nextExercise }, answered ? 'Siguiente ejercicio' : 'Saltar ejercicio');
+    const nextBtn = h('button', { class: answered ? 'btn btn-primary' : 'btn btn-ghost', type: 'button', id: 'next-btn', onclick: nextExercise }, answered ? 'Siguiente ejercicio' : 'Saltar ejercicio');
     const reportBtn = h('button', { class: 'btn btn-ghost btn-small-ghost', type: 'button', id: 'report-btn', onclick: openReport }, '⚑ Reportar error');
 
     const explanation = practice.explained
@@ -324,10 +327,11 @@ export async function startApp(root, opts = {}) {
         'section',
         { class: 'card question', 'aria-labelledby': 'q-title' },
         h('div', { class: 'q-meta' }, h('span', { class: 'tag' }, ex.topic), h('span', { class: 'dots', role: 'img', 'aria-label': `Dificultad ${ex.difficulty} de 5` }, dots)),
-        h('h2', { id: 'q-title', class: 'q-text' }, ex.statement.text),
+        h('h1', { id: 'q-title', class: 'q-text' }, ex.statement.text),
         ex.statement.latex ? h('div', { class: 'q-math' }, math(ex.statement.latex, { display: true })) : null,
       ),
       h('div', { class: 'options', role: 'group', 'aria-label': 'Opciones de respuesta (atajos: teclas 1 a 4)' }, options),
+      h('p', { class: 'muted small shortcuts' }, 'Atajos: 1 a 4 para responder · N para el siguiente'),
       feedback,
       h('div', { class: 'actions' }, explainBtn, tutorBtn, scanBtn, nextBtn, reportBtn),
       explanation,
@@ -644,6 +648,7 @@ export async function startApp(root, opts = {}) {
 
   const TUTOR_ERRORS = {
     network: 'Sin conexión: el Peer Tutor necesita internet.',
+    timeout: 'El tutor tardó demasiado. Intenta de nuevo.',
     daily_limit: 'Ya usaste tus mensajes de hoy. Se renuevan mañana.',
     capacity: 'El tutor está muy ocupado ahora. Intenta en unos minutos.',
     tutor_not_configured: 'El tutor todavía no está activado en este servidor.',
@@ -672,7 +677,7 @@ export async function startApp(root, opts = {}) {
     const history = chat.messages.map(({ role, content }) => ({ role, content }));
     const ex = practice.ex;
     chat.messages.push({ role: 'user', content: text });
-    Object.assign(chat, { busy: true, notice: '', draft: '' });
+    Object.assign(chat, { busy: true, notice: '', draft: '', retry: null });
     renderTutor();
 
     try {
@@ -686,6 +691,7 @@ export async function startApp(root, opts = {}) {
       chat.messages.pop(); // el mensaje no se procesó: se devuelve al cuadro para reintentar
       chat.draft = text;
       chat.notice = TUTOR_ERRORS[err.code] ?? 'Algo salió mal. Intenta de nuevo.';
+      if (err.code === 'upstream_error' || err.code === 'timeout') chat.retry = { text, mode };
       if (err.status === 401) {
         account = null;
         syncPlan();
@@ -765,6 +771,7 @@ export async function startApp(root, opts = {}) {
         log,
         h('div', { class: 'quick' }, quick),
         chat.notice ? h('p', { class: 'form-error', id: 'tutor-notice', role: 'alert' }, chat.notice) : null,
+        chat.retry ? h('button', { class: 'btn', type: 'button', id: 'tutor-retry', onclick: () => sendToTutor(chat.retry.text, chat.retry.mode) }, 'Reintentar') : null,
         h(
           'form',
           { id: 'chat-form', class: 'chat-form', onsubmit: (e) => { e.preventDefault(); sendToTutor(ta.value); } },
@@ -863,6 +870,7 @@ export async function startApp(root, opts = {}) {
   // ── Escáner de apuntes ────────────────────────────────────────
   const SCAN_ERRORS = {
     network: 'Sin conexión: el escáner necesita internet.',
+    timeout: 'La revisión tardó demasiado. Intenta de nuevo.',
     daily_limit: 'Ya usaste tus mensajes de hoy (el escáner comparte la cuota del tutor). Se renuevan mañana.',
     capacity: 'El servicio está muy ocupado ahora. Intenta en unos minutos.',
     scan_not_configured: 'El escáner todavía no está activado en este servidor.',
@@ -944,7 +952,7 @@ export async function startApp(root, opts = {}) {
     } else if (st === 'upgrade') {
       body = [head, h('p', {}, 'El escáner de apuntes es parte de ElaMath Pro.'), h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', type: 'button', id: 'scan-upgrade', onclick: () => { closeDialog(dlg); openPro('info'); } }, 'Ver plan Pro'))];
     } else {
-      const file = h('input', { type: 'file', id: 'scan-file', accept: 'image/*', capture: 'environment', 'aria-label': 'Foto de tu procedimiento', disabled: sc.busy });
+      const file = h('input', { type: 'file', id: 'scan-file', accept: 'image/*', 'aria-label': 'Foto de tu procedimiento', disabled: sc.busy });
       file.addEventListener('change', () => onScanFile(file.files?.[0] ?? null));
       const note = h('textarea', { id: 'scan-note', rows: 2, maxlength: 500, placeholder: 'Opcional: ¿qué te preocupa de este ejercicio?', 'aria-label': 'Nota opcional para el tutor', disabled: sc.busy });
       note.value = sc.note;
@@ -1038,11 +1046,13 @@ export async function startApp(root, opts = {}) {
     const r = X.applyExam(state, v.exam, today());
     state = { ...r.state, activeExam: null };
     persist();
-    v.result = { grade: X.gradeExam(v.exam), xpGained: r.xpGained };
+    const grade = X.gradeExam(v.exam);
+    // Al reprobar no se interrumpe con festejo: el nuevo nivel se menciona en el resultado.
+    v.result = { grade, xpGained: r.xpGained, quietLevel: r.leveledUp && !grade.passed ? r.level : null };
     v.item = null;
     if (reason === 'time') toast('Se acabó el tiempo: tu examen se entregó automáticamente.');
     if (view === 'exam') render();
-    if (r.leveledUp) showLevelUp(r.level);
+    if (r.leveledUp && grade.passed) showLevelUp(r.level);
   }
 
   function tickExam() {
@@ -1086,11 +1096,12 @@ export async function startApp(root, opts = {}) {
         { class: 'card question', 'aria-labelledby': 'q-title' },
         h('div', { class: 'q-meta' }, h('span', { class: 'tag' }, ex.topic), h('span', { class: 'muted small', id: 'exam-progress' }, `Pregunta ${n} de ${exam.questions}`)),
         progressBar((n - 1) / exam.questions, 'Avance del examen'),
-        h('h2', { id: 'q-title', class: 'q-text' }, ex.statement.text),
+        h('h1', { id: 'q-title', class: 'q-text' }, ex.statement.text),
         ex.statement.latex ? h('div', { class: 'q-math' }, math(ex.statement.latex, { display: true })) : null,
       ),
-      h('div', { class: 'options', role: 'group', 'aria-label': 'Opciones de respuesta' }, options),
+      h('div', { class: 'options', role: 'group', 'aria-label': 'Opciones de respuesta (atajos: teclas 1 a 4)' }, options),
       h('p', { class: 'muted small' }, 'Sin retroalimentación hasta el final. Cada respuesta es definitiva.'),
+      h('p', { class: 'muted small shortcuts' }, 'Atajos: 1 a 4 para responder'),
       h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', id: 'exam-finish', onclick: () => { if (globalThis.confirm?.('¿Entregar ahora? Las preguntas sin contestar cuentan como incorrectas.')) finishExamNow(); } }, 'Entregar examen')),
     );
   }
@@ -1119,6 +1130,7 @@ export async function startApp(root, opts = {}) {
         h('h1', { id: 'exam-score' }, `${g.score.toFixed(1)} / 10`),
         h('p', { id: 'exam-verdict', class: g.passed ? 'feedback ok' : 'feedback bad' }, g.passed ? '¡Aprobado!' : `Todavía no alcanza para aprobar (mínimo ${X.EXAM_PASS}). Repasa abajo y vuelve a intentarlo.`),
         h('p', { class: 'muted' }, `${g.correct} de ${g.total} correctas${g.answered < g.total ? ` · ${g.total - g.answered} sin contestar` : ''} · +${result.xpGained} XP`),
+        result.quietLevel ? h('p', { class: 'muted small', id: 'exam-level' }, `Con la práctica de hoy llegaste al Nivel ${result.quietLevel} · ${L.LEVEL_TITLES[result.quietLevel - 1]}.`) : null,
       ),
       h('h2', { class: 'section-title' }, 'Revisión'),
       review,
@@ -1133,15 +1145,33 @@ export async function startApp(root, opts = {}) {
 
   // ── Atajos de teclado: 1-4 / A-D responden, N pasa al siguiente ─
   function onKey(e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || view !== 'practice' || !practice) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const inExam = view === 'exam' && examView?.item;
+    if (!inExam && (view !== 'practice' || !practice)) return;
     if (document.querySelector('dialog[open]')) return;
     if (/^(input|textarea|select)$/i.test(e.target?.tagName ?? '')) return;
     const k = e.key.toLowerCase();
     const idx = '1234'.includes(k) && k.length === 1 ? Number(k) - 1 : 'abcd'.indexOf(k);
-    if (idx >= 0 && idx < 4 && k.length === 1) answer(idx);
-    else if (k === 'n') nextExercise();
+    if (idx >= 0 && idx < 4 && k.length === 1) {
+      if (inExam) examPick(idx);
+      else answer(idx);
+    } else if (k === 'n' && !inExam) nextExercise();
   }
   document.addEventListener('keydown', onKey);
+
+  // Al volver la red se quitan los avisos de «sin conexión»; lo escrito se conserva.
+  function onOnline() {
+    const chat = practice?.chat;
+    if (chat?.notice === TUTOR_ERRORS.network) {
+      chat.notice = '';
+      renderTutor();
+    }
+    if (ui.scan.status === SCAN_ERRORS.network) {
+      ui.scan.status = '';
+      renderScan();
+    }
+  }
+  window.addEventListener?.('online', onOnline);
 
   // ── Backend: disponibilidad, enlace de acceso y cuenta ────────
   async function initBackend() {
@@ -1152,6 +1182,7 @@ export async function startApp(root, opts = {}) {
       const params = new URLSearchParams(loc?.search ?? '');
       const token = params.get('login');
       let loggedNow = false;
+      let linkExpired = false;
       if (token && (backend.available || backend.reason === 'network')) {
         try {
           await api.verifyLogin(token);
@@ -1159,7 +1190,8 @@ export async function startApp(root, opts = {}) {
           loggedNow = true;
           toast('¡Listo! Ya entraste a tu cuenta.');
         } catch (err) {
-          toast(err.code === 'network' ? 'Sin conexión: abre el enlace de nuevo cuando tengas internet.' : 'El enlace no es válido o ya caducó. Pide uno nuevo.');
+          if (err.code === 'network') toast('Sin conexión: abre el enlace de nuevo cuando tengas internet.');
+          else linkExpired = true;
         }
         params.delete('login');
         const qs = params.toString();
@@ -1172,6 +1204,14 @@ export async function startApp(root, opts = {}) {
       if (backend.available && api.hasSession()) await refreshAccount();
       else syncPlan();
       if (backend.available || loggedNow) render(); // sin backend no hay nada nuevo que dibujar
+      if (linkExpired) {
+        if (account) toast('Ese enlace ya no es válido, pero tu sesión sigue activa.');
+        else {
+          openAccount();
+          ui.account.status = 'Ese enlace ya no es válido o caducó. Escribe tu correo y te mandamos uno nuevo.';
+          renderAccount();
+        }
+      }
     } catch {
       /* la app sigue en modo sin servidor */
     }
@@ -1194,6 +1234,7 @@ export async function startApp(root, opts = {}) {
     destroy: () => {
       stopExamTimer();
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener?.('online', onOnline);
     },
   };
 }

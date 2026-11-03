@@ -75,7 +75,8 @@ main:focus { outline: none; }
   padding: .3rem .65rem; border-radius: 999px;
   background: rgba(255, 255, 255, .14); color: #fff; border: 1px solid rgba(255, 255, 255, .25);
 }
-.chip-btn { cursor: pointer; }
+.chip-btn { cursor: pointer; position: relative; }
+.chip-btn::after { content: ''; position: absolute; inset: -8px 0; } /* área táctil de 44 px sin agrandar la píldora */
 .chip-btn:hover { background: rgba(255, 255, 255, .24); }
 .chip-offline { background: #fff3cd; color: #5c4400; border-color: #e0c36a; }
 
@@ -156,7 +157,7 @@ details.level[open] summary { margin-bottom: .6rem; }
   flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%;
   background: var(--blue); color: #fff; font-weight: 700; font-size: .9rem;
 }
-.opt-math { flex: 1; overflow-x: auto; min-width: 0; }
+.opt-math { flex: 1; overflow-x: auto; overflow-y: hidden; padding-block: .2rem; min-width: 0; }
 .mark { flex: none; font-size: .85rem; font-weight: 700; }
 .option.is-correct { border-color: var(--ok); background: var(--ok-bg); }
 .option.is-correct .mark { color: var(--ok); }
@@ -246,7 +247,9 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 .promo input{flex:1;min-width:0;text-transform:uppercase;letter-spacing:.06em}
 .form-ok{color:var(--ok,#0a7a3d);font-weight:600}
 .scan-preview{display:block;max-width:100%;max-height:220px;margin:.6rem auto;border-radius:10px;border:1px solid var(--border,#b9c2d0)}
-#scan-file{display:block;width:100%;margin:.6rem 0}
+#scan-file{display:block;width:100%;margin:.6rem 0;font:inherit;color:var(--muted)}
+#scan-file::file-selector-button{font:inherit;font-weight:600;min-height:44px;padding:.4rem .9rem;margin-right:.7rem;border-radius:10px;border:1px solid var(--blue-2);background:transparent;color:var(--text);cursor:pointer}
+#scan-note{display:block;width:100%;font:inherit;padding:.6rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);margin:0 0 .6rem}
 .exam-result h1{font-size:2.6rem;margin:.2rem 0}
 .review{border:1px solid var(--border,#b9c2d0);border-radius:10px;padding:.5rem .8rem;margin:.5rem 0}
 .review.ok summary{color:var(--ok,#0a7a3d)}
@@ -254,3 +257,16 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 .review summary{font-weight:600;cursor:pointer}
 #exam-clock{font-variant-numeric:tabular-nums;font-weight:700;margin-left:auto;background:var(--surface);color:var(--text);border-color:var(--line)}
 .section-title{margin:1.2rem 0 .4rem}
+.shortcuts{margin:-.4rem 0 .8rem}
+@media (hover: none){.shortcuts{display:none}}
+@media (max-width: 480px){
+  .topbar{flex-wrap:nowrap;gap:.5rem}
+  .topbar-right,.hud{flex-wrap:nowrap;min-width:0}
+  .topbar-right{gap:.3rem}
+  .hud{gap:.3rem}
+  .hud .chip{white-space:nowrap;padding:.3rem .5rem}
+  .chip-long{display:none}
+}
+@media (max-width: 420px){
+  .brand span{display:none}
+}

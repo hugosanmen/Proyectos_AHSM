@@ -8,7 +8,8 @@
 
 export class UpstreamError extends Error {}
 
-const TIMEOUT_MS = 25_000;
+const TIMEOUT_MS = 12_000; // texto: mejor un error rápido con reintento que una espera larga
+export const VISION_TIMEOUT_MS = 20_000; // las fotos tardan más; debe caber en maxDuration de Vercel
 
 const systemText = (system) => (typeof system === 'string' ? system : system.map((b) => b.text).join('\n\n'));
 
@@ -35,12 +36,13 @@ async function post(url, headers, body, fetchFn, timeoutMs = TIMEOUT_MS) {
 const anthropicContent = (c) =>
   typeof c === 'string' ? c : c.map((p) => (p.type === 'image' ? { type: 'image', source: { type: 'base64', media_type: p.mediaType, data: p.data } } : { type: 'text', text: p.text }));
 
-export async function callAnthropic({ apiKey, model, system, messages, maxTokens }, fetchFn = (...a) => globalThis.fetch(...a)) {
+export async function callAnthropic({ apiKey, model, system, messages, maxTokens, timeoutMs }, fetchFn = (...a) => globalThis.fetch(...a)) {
   const data = await post(
     'https://api.anthropic.com/v1/messages',
     { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     { model, max_tokens: maxTokens, system: typeof system === 'string' ? system : system, messages: messages.map((m) => ({ role: m.role, content: anthropicContent(m.content) })) },
     fetchFn,
+    timeoutMs,
   );
   const text = (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
   if (!text) throw new UpstreamError('empty');
@@ -51,7 +53,7 @@ export async function callAnthropic({ apiKey, model, system, messages, maxTokens
 const groqContent = (c) =>
   typeof c === 'string' ? c : c.map((p) => (p.type === 'image' ? { type: 'image_url', image_url: { url: `data:${p.mediaType};base64,${p.data}` } } : { type: 'text', text: p.text }));
 
-export async function callGroq({ apiKey, model, system, messages, maxTokens }, fetchFn = (...a) => globalThis.fetch(...a)) {
+export async function callGroq({ apiKey, model, system, messages, maxTokens, timeoutMs }, fetchFn = (...a) => globalThis.fetch(...a)) {
   const reasoning = /gpt-oss/.test(model); // modelos de razonamiento: gastan tokens "pensando"
   const body = {
     model,
@@ -60,16 +62,16 @@ export async function callGroq({ apiKey, model, system, messages, maxTokens }, f
     temperature: 0.3,
   };
   if (reasoning) Object.assign(body, { reasoning_effort: 'medium', include_reasoning: false });
-  const data = await post('https://api.groq.com/openai/v1/chat/completions', { authorization: `Bearer ${apiKey}` }, body, fetchFn);
+  const data = await post('https://api.groq.com/openai/v1/chat/completions', { authorization: `Bearer ${apiKey}` }, body, fetchFn, timeoutMs);
   const text = String(data.choices?.[0]?.message?.content ?? '').trim();
   if (!text) throw new UpstreamError('empty');
   return { text, usage: data.usage ?? null };
 }
 
 /** Llama al proveedor configurado. `config` es el objeto de loadConfig. */
-export async function chat({ config, model, system, messages, maxTokens }, fetchFn) {
+export async function chat({ config, model, system, messages, maxTokens, timeoutMs }, fetchFn) {
   const { provider, key } = config.llm;
-  const args = { apiKey: key, model, system, messages, maxTokens };
+  const args = { apiKey: key, model, system, messages, maxTokens, timeoutMs };
   if (provider === 'groq') return callGroq(args, fetchFn);
   if (provider === 'anthropic') return callAnthropic(args, fetchFn);
   throw new UpstreamError('no_provider');

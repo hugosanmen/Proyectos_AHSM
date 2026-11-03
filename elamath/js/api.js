@@ -14,6 +14,9 @@ export class ApiError extends Error {
   }
 }
 
+// El servidor corta antes (12 s y 20 s) para poder devolver el mensaje sin descontarlo.
+const TUTOR_TIMEOUT_MS = 15_000;
+const SCAN_TIMEOUT_MS = 24_000;
 const SESSION_KEY = 'elamath:session';
 const ACCOUNT_KEY = 'elamath:account';
 
@@ -53,7 +56,7 @@ export function createApi({ fetchFn, storage, base = '' } = {}) {
     }
   };
 
-  async function request(path, { method = 'GET', body, auth = false } = {}) {
+  async function request(path, { method = 'GET', body, auth = false, timeoutMs } = {}) {
     const headers = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     const token = read(SESSION_KEY);
@@ -61,11 +64,21 @@ export function createApi({ fetchFn, storage, base = '' } = {}) {
       if (token) headers.Authorization = `Bearer ${token}`;
       else if (auth) throw new ApiError(401, 'unauthorized');
     }
+    const ctrl = timeoutMs ? new AbortController() : null;
+    let timedOut = false;
+    const timer = ctrl
+      ? setTimeout(() => {
+          timedOut = true;
+          ctrl.abort();
+        }, timeoutMs)
+      : null;
     let res;
     try {
-      res = await doFetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await doFetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), ...(ctrl ? { signal: ctrl.signal } : {}) });
     } catch {
-      throw new ApiError(0, 'network');
+      throw new ApiError(0, timedOut ? 'timeout' : 'network');
+    } finally {
+      clearTimeout(timer);
     }
     let data = null;
     try {
@@ -128,7 +141,7 @@ export function createApi({ fetchFn, storage, base = '' } = {}) {
       if (cur) write(ACCOUNT_KEY, JSON.stringify({ ...cur, ...patch }));
     },
 
-    tutor: (payload) => request('/api/tutor', { method: 'POST', body: payload, auth: true }),
+    tutor: (payload) => request('/api/tutor', { method: 'POST', body: payload, auth: true, timeoutMs: TUTOR_TIMEOUT_MS }),
     /** Canjea un código de promoción; actualiza la cuenta guardada con el plan nuevo. */
     async redeemPromo(code) {
       const out = await request('/api/promo/redeem', { method: 'POST', body: { code }, auth: true });
@@ -136,7 +149,7 @@ export function createApi({ fetchFn, storage, base = '' } = {}) {
       return out;
     },
     /** Escáner de apuntes: { image:{mediaType,data}, message? } → { reply, tutor }. */
-    scan: (payload) => request('/api/scan', { method: 'POST', body: payload, auth: true }),
+    scan: (payload) => request('/api/scan', { method: 'POST', body: payload, auth: true, timeoutMs: SCAN_TIMEOUT_MS }),
     report: (payload) => request('/api/report', { method: 'POST', body: payload }),
     logout: clearSession,
   };

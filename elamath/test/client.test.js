@@ -216,9 +216,19 @@ describe('interfaz con backend', () => {
   it('enlace inválido o reutilizado muestra aviso y no inicia sesión', async () => {
     const { deps } = makeDeps();
     const c = await mount({ deps, search: '?login=token-falso' });
-    assert.match(c.q('#toast').textContent, /no es válido|caducó/);
+    assert.ok(c.q('#account-dialog').hasAttribute('open'), 'abre el formulario para pedir otro enlace');
+    assert.match(c.q('#login-status').textContent, /no es válido o caducó/);
+    assert.ok(c.q('#email-input'));
     assert.equal(c.app._account(), null);
     assert.equal(c.w.location.search, '');
+  });
+
+  it('enlace viejo con la sesión activa solo avisa', async () => {
+    const { deps, sent } = makeDeps();
+    const first = await mountLoggedIn(deps, sent);
+    const c = await mount({ deps, search: '?login=token-falso', storage: first.storage });
+    assert.match(c.q('#toast').textContent, /sesión sigue activa/);
+    assert.equal(c.q('#account-dialog').hasAttribute('open'), false);
   });
 
   it('correo mal escrito: mensaje de error en el formulario', async () => {
@@ -640,6 +650,31 @@ describe('exámenes simulados en la interfaz', () => {
     assert.equal(r.app.getState().activeExam, null);
   });
 
+  it('los atajos 1 a 4 responden el examen y al reprobar no hay festejo modal', async () => {
+    clock = NOW.getTime();
+    const { deps, sent } = makeDeps();
+    const c = await mountLoggedIn(deps, sent, { nowFn });
+    await c.click(c.q('[data-exam]'));
+    assert.match(c.q('.shortcuts').textContent, /1 a 4/);
+    const press = async (key) => {
+      c.doc.dispatchEvent(new c.w.KeyboardEvent('keydown', { key, bubbles: true }));
+      await tick(5);
+    };
+    await press('n');
+    assert.match(c.q('#exam-progress').textContent, /Pregunta 1 de 10/);
+    await press('2');
+    assert.match(c.q('#exam-progress').textContent, /Pregunta 2 de 10/);
+    await press('q');
+    assert.match(c.q('#exam-progress').textContent, /Pregunta 2 de 10/);
+    const v = c.app._exam();
+    for (let i = 0; i < 9; i++) {
+      const wrong = v.item.ex.options.findIndex((o) => !o.correct);
+      await press(String(wrong + 1));
+    }
+    assert.equal(v.result.grade.passed, false);
+    assert.equal(c.q('#levelup-dialog').hasAttribute('open'), false);
+  });
+
   it('abandonar pide confirmación y no guarda nada; entregar antes de tiempo también pide confirmación', async () => {
     clock = NOW.getTime();
     const { deps, sent } = makeDeps();
@@ -729,5 +764,78 @@ describe('etapa de pruebas en la interfaz (cobro apagado)', () => {
     await c.click(c.q('#credits-chip'));
     assert.match(c.q('#pro-dialog').textContent, /Entra con tu correo para usar todo gratis/);
     assert.doesNotMatch(c.q('#pro-dialog').textContent, /\$50/);
+  });
+});
+
+describe('tutor: espera, reintento y conexión', () => {
+  it('si la IA falla ofrece Reintentar y conserva el mensaje', async () => {
+    const { deps, sent } = makeDeps();
+    const c = await mountLoggedIn(deps, sent);
+    await c.click(c.q('[data-topic], .topic .btn'));
+    await c.click(c.q('#tutor-btn'));
+    const real = deps.fetchFn;
+    deps.fetchFn = async () => ({ ok: false, status: 500, json: async () => ({}) });
+    c.q('#tutor-input').value = 'hola';
+    await c.submit(c.q('#chat-form'));
+    await tick(20);
+    assert.match(c.q('#tutor-notice').textContent, /No se descontó/);
+    assert.ok(c.q('#tutor-retry'));
+    deps.fetchFn = real;
+    await c.click(c.q('#tutor-retry'));
+    await tick(20);
+    assert.equal(c.q('#tutor-retry'), null);
+    assert.equal(c.q('#tutor-notice'), null);
+    assert.match(c.q('#chat-log').textContent, /hola/);
+  });
+
+  it('el aviso de sin conexión se borra al volver la red y el texto se queda', async () => {
+    const { deps, sent } = makeDeps();
+    const c = await mountLoggedIn(deps, sent);
+    await c.click(c.q('[data-topic], .topic .btn'));
+    await c.click(c.q('#tutor-btn'));
+    const nav = globalThis.navigator;
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: false } });
+    c.q('#tutor-input').value = 'hola';
+    await c.submit(c.q('#chat-form'));
+    assert.match(c.q('#tutor-notice').textContent, /Sin conexión/);
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: nav });
+    c.w.dispatchEvent(new c.w.Event('online'));
+    await tick(5);
+    assert.equal(c.q('#tutor-notice'), null);
+    assert.equal(c.q('#tutor-input').value, 'hola');
+  });
+
+  it('el cliente corta la espera y lo distingue de no tener red', async () => {
+    const fetchFn = (_u, init) => new Promise((_r, reject) => init.signal?.addEventListener('abort', () => reject(new Error('abort'))));
+    const mem = memStorage();
+    mem.setItem('elamath:session', 's');
+    const orig = globalThis.setTimeout;
+    globalThis.setTimeout = (fn, ms, ...a) => orig(fn, Math.min(ms, 5), ...a);
+    try {
+      const err = await createApi({ fetchFn, storage: mem }).tutor({ message: 'x' }).catch((e) => e);
+      assert.equal(err.code, 'timeout');
+      assert.equal(err.status, 0);
+    } finally {
+      globalThis.setTimeout = orig;
+    }
+  });
+});
+
+describe('interfaz: textos y jerarquía', () => {
+  it('singular, botón Saltar secundario y un h1 en el ejercicio', async () => {
+    const { deps } = makeDeps();
+    const c = await mount({ deps, bridgeOpts: { absent: true } });
+    await c.click(c.q('.topic .btn'));
+    assert.equal(c.q('#q-title').tagName, 'H1');
+    assert.ok(c.q('#next-btn').classList.contains('btn-ghost'));
+    assert.match(c.q('.shortcuts').textContent, /N para el siguiente/);
+    await c.click(c.q('.option[data-option="0"]'));
+    assert.ok(c.q('#next-btn').classList.contains('btn-primary'));
+    await c.click(c.q('.practice-head .btn'));
+    assert.match(c.q('main').textContent, /aciertos? de 1 intento(?!s)/);
+    assert.match(c.q('main').textContent, /1 de 8 intentos para medir tu dominio/);
+  });
+  it('el selector del escáner permite elegir de la galería', () => {
+    assert.doesNotMatch(readFileSync(fileURLToPath(new URL('../js/app.js', import.meta.url)), 'utf8'), /capture:/);
   });
 });
