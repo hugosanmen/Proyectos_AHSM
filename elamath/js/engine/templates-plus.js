@@ -482,7 +482,7 @@ export const templatesPlus = [
       const val = fr(ask === 'suma' ? tr : dt);
       return {
         params: { a, b, c, d, ask },
-        statement: { text: `Sin calcularlos, ¿cuál es el ${ask} de los valores propios de la matriz?`, latex: `A=${pmatrix([[a, b], [c, d]])}` },
+        statement: { text: `Sin calcularlos, ¿cuál es ${ask === 'suma' ? 'la suma' : 'el producto'} de los valores propios de la matriz?`, latex: `A=${pmatrix([[a, b], [c, d]])}` },
         answer: ansOf(val),
         steps: [
           { latex: `\\lambda_1+\\lambda_2=\\text{tr}(A),\\quad \\lambda_1\\lambda_2=\\det A`, note: 'Salen de los coeficientes de la ecuación característica.' },
@@ -790,7 +790,7 @@ export const templatesPlus = [
       const val = fr(y0 - K);
       return {
         params: { a, K, y0 },
-        statement: { text: `La solución tiene la forma y(t) = K + C·e^(−${a}t). ¿Cuánto vale C?`, latex: `y' + ${a === 1 ? '' : a}y = ${b},\\quad y(0)=${y0}` },
+        statement: { text: `La solución tiene la forma y(t) = K + C·e^(−${a === 1 ? '' : a}t). ¿Cuánto vale C?`, latex: `y' + ${a === 1 ? '' : a}y = ${b},\\quad y(0)=${y0}` },
         answer: ansOf(val),
         steps: [
           { latex: `K=\\frac{${b}}{${a}}=${K}`, note: 'K es la solución constante: sale de hacer y′ = 0.' },
@@ -821,7 +821,7 @@ export const templatesPlus = [
         answer: ansOf(val),
         steps: [
           { latex: `r_1=${r1},\\quad r_2=${r2}`, note: 'Resuelve la ecuación característica.' },
-          { latex: `C_1+C_2=${y0},\\quad ${r1}C_1+(${r2})C_2=${v0}`, note: 'Cada condición inicial da una ecuación.' },
+          { latex: `C_1+C_2=${y0},\\quad ${terms([[r1, 'C_1'], [r2, 'C_2']])}=${v0}`, note: 'Cada condición inicial da una ecuación.' },
           { latex: `C_1=${val.toLatex()}`, note: 'Resuelve el sistema.' },
         ],
         distractors: numericDistractors(val, [

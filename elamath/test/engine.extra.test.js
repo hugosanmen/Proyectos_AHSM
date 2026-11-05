@@ -203,3 +203,11 @@ describe('variedad y escala de dificultad', () => {
     assert.ok(set.size >= 18, `solo ${set.size}`);
   });
 });
+
+describe('revisión de redacción', () => {
+  it('concordancia y exponentes bien escritos', () => {
+    forEachSeed('al-traza-det', (ex) => assert.doesNotMatch(ex.statement.text, /el suma/));
+    forEachSeed('ed-lineal', (ex) => assert.doesNotMatch(ex.statement.text, /−1t/));
+    forEachSeed('ed-pvi-segundo', (ex) => assert.doesNotMatch(ex.steps[1].latex, /\b0C_|\b1C_/));
+  });
+});
