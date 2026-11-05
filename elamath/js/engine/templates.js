@@ -436,18 +436,18 @@ export const templates = [
       const variant = rng.pick(['lineal', 'potencia', 'seno']);
       let k, g, gp, answerLatex;
       if (variant === 'lineal') {
-        k = rng.int(1, 6);
+        k = rng.int(1, 9);
         g = k === 1 ? 'x' : `${k}x`;
         gp = String(k);
         answerLatex = `x^{${g}}\\cdot ${k === 1 ? '' : k}(\\ln x+1)`;
       } else if (variant === 'potencia') {
-        k = rng.int(2, 3);
+        k = rng.int(2, 5);
         g = `x^{${k}}`;
         gp = k === 2 ? '2x' : `${k}x^{${k - 1}}`;
         const gx = k === 2 ? 'x' : `x^{${k - 1}}`; // g(x)/x
         answerLatex = `x^{${g}}\\cdot(${gp}\\ln x+${gx})`;
       } else {
-        k = rng.int(1, 4);
+        k = rng.int(1, 6);
         g = k === 1 ? '\\sin x' : `\\sin(${k}x)`;
         gp = k === 1 ? '\\cos x' : `${k}\\cos(${k}x)`;
         answerLatex = `x^{${g}}\\cdot(${gp}\\ln x+\\frac{${g}}{x})`;

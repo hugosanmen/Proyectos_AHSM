@@ -14,10 +14,11 @@ import { IDEAS } from '../js/engine/ideas.js';
 import { Fraction, numericDistractors } from '../js/engine/utils.js';
 import { ORACLES_N4 } from './oracles/n4.js';
 import { ORACLES_N5 } from './oracles/n5.js';
+import { ORACLES_PLUS } from './oracles/plus.js';
 
-const ORACLES = { ...ORACLES_N1, ...ORACLES_N2, ...ORACLES_N3, ...ORACLES_N4, ...ORACLES_N5 };
+const ORACLES = { ...ORACLES_N1, ...ORACLES_N2, ...ORACLES_N3, ...ORACLES_N4, ...ORACLES_N5, ...ORACLES_PLUS };
 // Respuestas cuyo LaTeX no puede evaluar el compilador de pruebas (π, i, intervalos…): se verifican con su oráculo.
-const NO_COMPILE = new Set(['mn-biseccion', 'vc-potencia-i', 'vc-division', 'vc-derivada', 'ss-periodo', 'ss-estabilidad', 'op-hessiana']);
+const NO_COMPILE = new Set(['mn-biseccion', 'vc-potencia-i', 'vc-division', 'vc-derivada', 'ss-periodo', 'ss-estabilidad', 'op-hessiana', 'vec-polar', 'vc-cauchy', 'ma-laplace-edo', 'mo-sistema-lineal']);
 
 const SEEDS = Number(process.env.SEEDS ?? 600);
 const balanced = (s) => (s.match(/{/g) ?? []).length === (s.match(/}/g) ?? []).length;
@@ -178,5 +179,27 @@ describe('retroalimentación', () => {
     const pad = numericDistractors(new Fraction(5), [], 4);
     assert.deepEqual(pad.map((d) => d.latex), ['6', '4', '7', '3']);
     assert.equal(new Set(pad.map((d) => d.feedback)).size, 4);
+  });
+});
+
+describe('variedad y escala de dificultad', () => {
+  it('cada tema tiene al menos 2 plantillas', () => {
+    const n = {};
+    for (const t of templates) n[t.topic] = (n[t.topic] ?? 0) + 1;
+    for (const lvl of CURRICULUM) for (const s of lvl.subjects) for (const tp of s.topics) assert.ok(n[tp] >= 2, `${tp}: solo ${n[tp]}`);
+  });
+  it('existen ejercicios de dificultad 4 y 5 en cantidad útil', () => {
+    const at = (d) => templates.filter((t) => t.difficulty === d).length;
+    assert.ok(at(4) >= 12, `dificultad 4: ${at(4)}`);
+    assert.ok(at(5) >= 12, `dificultad 5: ${at(5)}`);
+    for (const lvl of CURRICULUM.slice(0, 4)) {
+      const topics = lvl.subjects.flatMap((s) => s.topics);
+      assert.ok(templates.some((t) => t.difficulty === 5 && topics.includes(t.topic)), `nivel ${lvl.level} sin dificultad 5`);
+    }
+  });
+  it('derivada-logaritmica ya tiene variantes suficientes', () => {
+    const set = new Set();
+    for (let seed = 1; seed <= 600; seed++) set.add(generateExercise('derivada-logaritmica', seed).statement.latex);
+    assert.ok(set.size >= 18, `solo ${set.size}`);
   });
 });

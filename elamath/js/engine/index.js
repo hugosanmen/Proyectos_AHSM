@@ -6,13 +6,14 @@ import { templatesN2 } from './templates-n2.js';
 import { templatesN3 } from './templates-n3.js';
 import { templatesN4 } from './templates-n4.js';
 import { templatesN5 } from './templates-n5.js';
+import { templatesPlus } from './templates-plus.js';
 import { createRng, shuffle } from './utils.js';
 import { IDEAS } from './ideas.js';
 
 /** Plantillas de Cálculo Diferencial (las de la primera versión). */
 export { baseTemplates };
 /** Plantillas de las demás materias, en orden de nivel. */
-export const extraTemplates = [...templatesN1, ...templatesN2, ...templatesN3, ...templatesN4, ...templatesN5];
+export const extraTemplates = [...templatesN1, ...templatesN2, ...templatesN3, ...templatesN4, ...templatesN5, ...templatesPlus];
 /** Todas las plantillas del motor. */
 export const templates = [...baseTemplates, ...extraTemplates];
 export { createRng, Fraction, polyLatex } from './utils.js';

@@ -5,7 +5,7 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = '572fad694c0a';
+const VERSION = '5d0077e66ca8';
 // </build:version>
 
 // <build:precache>
@@ -30,6 +30,7 @@ const PRECACHE = [
   "./js/engine/templates-n3.js",
   "./js/engine/templates-n4.js",
   "./js/engine/templates-n5.js",
+  "./js/engine/templates-plus.js",
   "./js/engine/templates.js",
   "./js/engine/utils.js",
   "./js/exam.js",

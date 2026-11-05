@@ -339,7 +339,7 @@ describe('robustez de renderizado', () => {
       assert.equal(c.qa('button.option').length, 4);
       await c.click(c.q('#next-btn'));
     }
-    assert.equal(vistos.size, 10, 'se vieron las 10 plantillas');
+    assert.equal(vistos.size, 12, 'se vieron las 12 plantillas de la materia');
   });
 });
 
