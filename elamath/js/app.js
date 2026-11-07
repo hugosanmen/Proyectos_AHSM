@@ -419,6 +419,13 @@ export async function startApp(root, opts = {}) {
         { class: 'actions' },
         h('button', { class: 'btn btn-primary', type: 'button', onclick: () => startPractice(subject) }, 'Práctica mixta'),
         h('button', { class: 'btn', type: 'button', 'data-exam': subject.name, onclick: () => startExamFlow(subject.topics, subject.name, subject.minDifficulty) }, '📝 Examen simulado'),
+        subject.final
+          ? h(
+              'button',
+              { class: 'btn', type: 'button', 'data-final': subject.name, title: `${X.finalPlan(subject.final).length} reactivos con el peso de temas del examen final · ${subject.final.minutes} min`, onclick: () => startFinalFlow(subject) },
+              '🎓 Simulacro tipo final',
+            )
+          : null,
       ),
     );
   }
@@ -1165,10 +1172,16 @@ export async function startApp(root, opts = {}) {
     examTimer = null;
   }
 
-  function startExamFlow(topics, label, minDifficulty = 0) {
+  function startFinalFlow(subject) {
+    const plan = X.finalPlan(subject.final);
+    startExamFlow(X.finalTopics(subject.final), `Simulacro final · ${subject.name}`, 0, { plan, minutes: subject.final.minutes });
+  }
+
+  function startExamFlow(topics, label, minDifficulty = 0, final = null) {
     // Con servidor, el examen es de Pro/prueba. Sin servidor (demo) queda abierto.
     if (backend.available && state.plan !== 'pro') return openPro('exam');
-    examView = { minDifficulty, exam: X.startExam({ topics, label, now: nowMs() }), item: null, result: null, pool: examPool(topics, minDifficulty) };
+    const exam = X.startExam({ topics, label, now: nowMs(), ...(final ? { plan: final.plan, minutes: final.minutes } : {}) });
+    examView = { minDifficulty, exam, item: null, result: null, pool: examPool(topics, minDifficulty) };
     examNext();
     saveExam();
     stopExamTimer();
@@ -1273,13 +1286,19 @@ export async function startApp(root, opts = {}) {
         'div',
         { class: 'practice-head' },
         h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-leave', onclick: leaveExam }, '← Abandonar'),
-        h('p', { class: 'eyebrow' }, `Examen simulado · ${exam.label}`),
+        h('p', { class: 'eyebrow' }, exam.plan ? exam.label : `Examen simulado · ${exam.label}`),
         h('span', { class: 'chip', id: 'exam-clock', role: 'timer', 'aria-label': 'Tiempo restante' }, X.formatClock(X.timeLeftMs(exam, nowMs()))),
       ),
       h(
         'section',
         { class: 'card question', 'aria-labelledby': 'q-title' },
-        h('div', { class: 'q-meta' }, h('span', { class: 'tag' }, ex.topic), h('span', { class: 'muted small', id: 'exam-progress' }, `Pregunta ${n} de ${exam.questions}`)),
+        h(
+          'div',
+          { class: 'q-meta' },
+          h('span', { class: 'tag' }, ex.topic),
+          exam.plan ? h('span', { class: 'muted small', id: 'exam-points' }, `${fmtPts(exam.plan[n - 1].points)} pts`) : null,
+          h('span', { class: 'muted small', id: 'exam-progress' }, `Pregunta ${n} de ${exam.questions}`),
+        ),
         progressBar((n - 1) / exam.questions, 'Avance del examen'),
         h('h1', { id: 'q-title', class: 'q-text' }, ex.statement.text),
         ex.statement.latex ? h('div', { class: 'q-math' }, math(ex.statement.latex, { display: true })) : null,
@@ -1290,6 +1309,8 @@ export async function startApp(root, opts = {}) {
       h('div', { class: 'actions' }, h('button', { class: 'btn', type: 'button', id: 'exam-finish', onclick: () => { if (globalThis.confirm?.('¿Entregar ahora? Las preguntas sin contestar cuentan como incorrectas.')) finishExamNow(); } }, 'Entregar examen')),
     );
   }
+
+  const fmtPts = (p) => (Number.isInteger(p) ? String(p) : p.toFixed(1));
 
   function renderExamResult() {
     const { exam, result } = examView;
@@ -1315,7 +1336,14 @@ export async function startApp(root, opts = {}) {
         h('p', { class: 'eyebrow' }, `Resultado · ${exam.label}`),
         h('h1', { id: 'exam-score' }, `${g.score.toFixed(1)} / 10`),
         h('p', { id: 'exam-verdict', class: g.passed ? 'feedback ok' : 'feedback bad' }, g.passed ? '¡Aprobado!' : `Todavía no alcanza para aprobar (mínimo ${X.EXAM_PASS}). Repasa abajo y vuelve a intentarlo.`),
-        h('p', { class: 'muted' }, `${g.correct} de ${g.total} correctas${g.answered < g.total ? ` · ${g.total - g.answered} sin contestar` : ''} · +${result.xpGained} XP`),
+        h('p', { class: 'muted' }, `${g.points ? `${fmtPts(g.points.earned)} de ${fmtPts(g.points.max)} puntos · ` : ''}${g.correct} de ${g.total} correctas${g.answered < g.total ? ` · ${g.total - g.answered} sin contestar` : ''} · +${result.xpGained} XP`),
+        g.blocks
+          ? h(
+              'ul',
+              { class: 'final-blocks', id: 'final-blocks', 'aria-label': 'Puntos por bloque' },
+              g.blocks.map((b) => h('li', {}, h('span', {}, b.name), h('span', { class: 'muted' }, `${fmtPts(b.earned)} / ${fmtPts(b.points)}`))),
+            )
+          : null,
         result.quietLevel ? h('p', { class: 'muted small', id: 'exam-level' }, `Con la práctica de hoy llegaste al Nivel ${result.quietLevel} · ${L.LEVEL_TITLES[result.quietLevel - 1]}.`) : null,
       ),
       reviewCard(L.weakTopics(state.topics, { only: exam.items.map((i) => i.ex.topic) })),
@@ -1324,7 +1352,7 @@ export async function startApp(root, opts = {}) {
       h(
         'div',
         { class: 'actions' },
-        h('button', { class: 'btn btn-primary', type: 'button', id: 'exam-again', onclick: () => startExamFlow(exam.topics, exam.label, examView.minDifficulty) }, 'Otro examen'),
+        h('button', { class: 'btn btn-primary', type: 'button', id: 'exam-again', onclick: () => startExamFlow(exam.topics, exam.label, examView.minDifficulty, exam.plan ? { plan: exam.plan, minutes: exam.minutes } : null) }, exam.plan ? 'Otro simulacro' : 'Otro examen'),
         h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-home', onclick: () => { examView = null; goHome(); } }, '← Materias'),
       ),
     );

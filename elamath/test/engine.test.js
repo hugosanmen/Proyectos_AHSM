@@ -229,7 +229,7 @@ describe('evaluador de LaTeX (herramienta de pruebas)', () => {
   });
   it('rechaza lo que no entiende', () => {
     assert.throws(() => ev('x=2'), /no soportados/);
-    assert.throws(() => ev('\\sqrt{x}'), /no soportado/i);
+    assert.throws(() => ev('\\log{x}'), /no soportado/i);
     assert.throws(() => ev('x+'), /incompleta/);
     assert.throws(() => ev('x', {}), /no definida/);
   });

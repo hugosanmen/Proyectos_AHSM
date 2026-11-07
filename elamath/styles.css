@@ -322,3 +322,7 @@ dialog::backdrop { background: rgba(0, 20, 40, .55); }
 .report-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-foot { margin: 1.5rem 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Simulacro tipo final: puntos por bloque */
+.final-blocks { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; text-align: left; }
+.final-blocks li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line, rgba(127,127,127,.25)); }

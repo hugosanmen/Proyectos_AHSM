@@ -6,6 +6,7 @@ import * as X from '../js/exam.js';
 import * as L from '../js/logic.js';
 import { generateExercise, templates, toMultipleChoice } from '../js/engine/index.js';
 import { createRng } from '../js/engine/utils.js';
+import { CURRICULUM } from '../js/curriculum.js';
 import { ImageError, MAX_B64, prepareImage } from '../js/image.js';
 
 const rnd = (seed) => createRng(seed).next;
@@ -189,5 +190,47 @@ describe('prepareImage', () => {
     await assert.rejects(prepareImage(file(), { load: async () => ({ width: 3000, height: 3000, source: {}, release: () => (released = true) }), encode: () => 'A'.repeat(MAX_B64 + 1) }), (e) => e.code === 'too_big');
     assert.equal(released, true);
     await assert.rejects(prepareImage(file(), { load: async () => { throw new Error('corrupta'); }, encode: () => 'x' }), (e) => e.code === 'decode');
+  });
+});
+
+describe('simulacro tipo final', () => {
+  const finals = CURRICULUM.flatMap((l) => l.subjects).filter((s) => s.final);
+
+  it('existen finales de Álgebra, Cálculo Integral y Matemáticas Avanzadas, con 100 puntos y temas con plantillas', () => {
+    assert.deepEqual(finals.map((s) => s.id).sort(), ['algebra', 'calculo-integral', 'matematicas-avanzadas']);
+    const topics = new Set(templates.map((t) => t.topic));
+    for (const s of finals) {
+      const plan = X.finalPlan(s.final);
+      assert.ok(Math.abs(plan.reduce((a, p) => a + p.points, 0) - 100) < 1e-9, s.id);
+      for (const b of s.final.blocks) for (const tp of b.topics) assert.ok(topics.has(tp), `${s.id}: «${tp}» sin plantillas`);
+    }
+  });
+
+  it('cada reactivo sale del bloque que le toca y la calificación pondera los puntos', () => {
+    const s = finals.find((f) => f.id === 'algebra');
+    const plan = X.finalPlan(s.final);
+    let exam = X.startExam({ topics: X.finalTopics(s.final), label: 'Simulacro', now: T0, minutes: s.final.minutes, plan });
+    assert.equal(exam.questions, plan.length);
+    assert.equal(exam.deadline - exam.startedAt, s.final.minutes * 60_000);
+    const rng = rnd(9);
+    // acierta solo los reactivos de los bloques de 20 puntos
+    while (exam.items.length < exam.questions) {
+      const i = exam.items.length;
+      const item = X.nextItem(exam, { templates, make, rand: rng });
+      assert.ok(plan[i].topics.includes(item.ex.topic), `reactivo ${i}: ${item.ex.topic} no es de ${plan[i].block}`);
+      exam = X.answerItem(exam, item, plan[i].points === 10 ? right(item) : wrong(item));
+    }
+    const g = X.gradeExam(X.finishExam(exam, T0 + 1000));
+    assert.deepEqual(g.points, { earned: 40, max: 100 });
+    assert.equal(g.score, 4);
+    assert.equal(g.correct, 4);
+    assert.equal(g.blocks.find((b) => b.name === 'Matrices').earned, 20);
+    assert.equal(g.blocks.find((b) => b.name === 'Trigonometría').earned, 0);
+  });
+
+  it('el examen normal no cambia: sin plan no hay puntos', () => {
+    const g = X.gradeExam(play(X.startExam({ topics: topicsOf(3), label: 'x', now: T0 }), right));
+    assert.equal(g.points, undefined);
+    assert.equal(g.score, 10);
   });
 });

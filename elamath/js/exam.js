@@ -3,6 +3,8 @@
 // Reglas: 10 reactivos adaptativos, 20 minutos, sin retroalimentación hasta el final.
 // La dificultad inicia en 2; acierto → sube 1, error → baja 1 (entre 1 y 5). Sin respuesta cuenta como error.
 // Calificación 0–10 = aciertos / reactivos × 10; aprueba con 6. Al terminar se aplica XP/dominio por reactivo.
+// Simulacro tipo final: sigue un plan de bloques (temas y puntos, como los finales reales). Cada reactivo sale
+// de los temas de su bloque y vale su parte de los puntos; la calificación es puntos obtenidos / puntos totales × 10.
 
 import { EXAM_HISTORY, applyAnswer } from './logic.js';
 
@@ -23,15 +25,25 @@ export function pickTemplate(templates, topics, target, recentIds, rand) {
   return near[Math.floor(rand() * near.length)];
 }
 
-export function startExam({ topics, label, now, minutes = EXAM_MINUTES, questions = EXAM_QUESTIONS }) {
-  return { topics, label, questions, startedAt: now, deadline: now + minutes * 60_000, target: START_DIFFICULTY, items: [], index: 0, finished: false, finishedAt: null };
+export function startExam({ topics, label, now, minutes = EXAM_MINUTES, questions = EXAM_QUESTIONS, plan = null }) {
+  const base = { topics, label, questions, minutes, startedAt: now, deadline: now + minutes * 60_000, target: START_DIFFICULTY, items: [], index: 0, finished: false, finishedAt: null };
+  return plan ? { ...base, plan, questions: plan.length } : base;
 }
+
+/** Convierte los bloques de un final ({ name, topics, points, count }) en un reactivo por renglón con sus puntos. */
+export function finalPlan(final) {
+  return final.blocks.flatMap((b) => Array.from({ length: b.count }, () => ({ block: b.name, topics: b.topics, points: b.points / b.count })));
+}
+
+/** Temas de todos los bloques de un final, sin repetir. */
+export const finalTopics = (final) => [...new Set(final.blocks.flatMap((b) => b.topics))];
 
 /** Siguiente reactivo (o null si ya se contestaron todos). `make(templateId, seed)` devuelve el ejercicio de opción múltiple. */
 export function nextItem(exam, { templates, make, rand }) {
   if (exam.finished || exam.items.length >= exam.questions) return null;
   const recent = exam.items.slice(-4).map((i) => i.ex.templateId);
-  const t = pickTemplate(templates, exam.topics, exam.target, recent, rand);
+  const topics = exam.plan ? exam.plan[exam.items.length].topics : exam.topics;
+  const t = pickTemplate(templates, topics, exam.target, recent, rand);
   if (!t) return null;
   const seed = 1 + Math.floor(rand() * (2 ** 31 - 2));
   return { ex: make(t.id, seed), picked: null, correct: null };
@@ -60,6 +72,19 @@ export function finishExam(exam, now) {
 export function gradeExam(exam) {
   const correct = exam.items.filter((i) => i.correct).length;
   const total = exam.questions;
+  if (exam.plan) {
+    const max = exam.plan.reduce((s, p) => s + p.points, 0);
+    const earned = exam.items.reduce((s, it, i) => s + (it.correct ? exam.plan[i].points : 0), 0);
+    const score = Math.round((earned / max) * 100) / 10;
+    const blocks = [];
+    exam.plan.forEach((p, i) => {
+      let b = blocks.find((x) => x.name === p.block);
+      if (!b) blocks.push((b = { name: p.block, earned: 0, points: 0 }));
+      b.points += p.points;
+      if (exam.items[i]?.correct) b.earned += p.points;
+    });
+    return { correct, answered: exam.items.length, total, score, passed: score >= EXAM_PASS, points: { earned, max }, blocks };
+  }
   const score = Math.round((correct / total) * 100) / 10;
   return { correct, answered: exam.items.length, total, score, passed: score >= EXAM_PASS };
 }

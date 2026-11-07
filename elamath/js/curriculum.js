@@ -2,6 +2,8 @@
 // `topic` de las plantillas del motor). Una materia sin `available: true` aparece como «Próximamente».
 // Las materias con `mixed: true` (Preparación, Retos) reutilizan temas de otras materias;
 // `minDifficulty` limita el sorteo a ejercicios de esa dificultad o más.
+// `final` describe un simulacro tipo examen final: bloques con temas, puntos y número de reactivos,
+// con la misma mezcla y peso de temas que los finales reales de la materia.
 
 export const CURRICULUM = [
   {
@@ -9,10 +11,32 @@ export const CURRICULUM = [
     name: 'Ingreso y Ciencias Básicas',
     semesters: '1.º a 2.º semestre',
     subjects: [
-      { id: 'algebra', name: 'Álgebra', available: true, topics: ['Ecuaciones y sistemas', 'Exponentes y logaritmos', 'Binomio de Newton'] },
+      { id: 'algebra', name: 'Álgebra', available: true, topics: ['Trigonometría', 'Números reales', 'Complejos en forma polar', 'Polinomios', 'Ecuaciones y sistemas', 'Matrices', 'Exponentes y logaritmos', 'Binomio de Newton'],
+        final: {
+          minutes: 60,
+          blocks: [
+            { name: 'Trigonometría', topics: ['Trigonometría'], points: 15, count: 2 },
+            { name: 'Números reales', topics: ['Números reales'], points: 15, count: 2 },
+            { name: 'Números complejos', topics: ['Complejos en forma polar'], points: 20, count: 2 },
+            { name: 'Polinomios', topics: ['Polinomios'], points: 15, count: 2 },
+            { name: 'Sistemas de ecuaciones', topics: ['Ecuaciones y sistemas'], points: 15, count: 2 },
+            { name: 'Matrices', topics: ['Matrices'], points: 20, count: 2 },
+          ],
+        },
+      },
       { id: 'geometria-analitica', name: 'Geometría Analítica', available: true, topics: ['Rectas y distancias', 'Cónicas'] },
       { id: 'calculo-diferencial', name: 'Cálculo Diferencial', available: true, topics: ['Límites', 'Derivadas', 'Aplicaciones de la derivada'] },
-      { id: 'calculo-integral', name: 'Cálculo Integral', available: true, topics: ['Integral indefinida', 'Integral definida'] },
+      { id: 'calculo-integral', name: 'Cálculo Integral', available: true, topics: ['Integral indefinida', 'Métodos de integración', 'Integral definida', 'Aplicaciones de la integral', 'Sucesiones y series'],
+        final: {
+          minutes: 60,
+          blocks: [
+            { name: 'Métodos de integración', topics: ['Métodos de integración', 'Integral indefinida'], points: 30, count: 3 },
+            { name: 'Integral definida e impropia', topics: ['Integral definida'], points: 20, count: 2 },
+            { name: 'Aplicaciones de la integral', topics: ['Aplicaciones de la integral'], points: 25, count: 3 },
+            { name: 'Sucesiones y series', topics: ['Sucesiones y series'], points: 25, count: 2 },
+          ],
+        },
+      },
     ],
   },
   {
@@ -32,7 +56,7 @@ export const CURRICULUM = [
     subjects: [
       { id: 'metodos-numericos', name: 'Métodos Numéricos', available: true, topics: ['Raíces de ecuaciones', 'Integración y EDO numéricas'] },
       { id: 'probabilidad-estadistica', name: 'Probabilidad y Estadística', available: true, topics: ['Combinatoria y probabilidad', 'Estadística descriptiva', 'Distribuciones'] },
-      { id: 'variable-compleja', name: 'Funciones de Variable Compleja', available: true, topics: ['Números complejos', 'Funciones analíticas'] },
+      { id: 'variable-compleja', name: 'Funciones de Variable Compleja', available: true, topics: ['Números complejos', 'Funciones analíticas', 'Integración compleja', 'Mapeos'] },
     ],
   },
   {
@@ -40,7 +64,17 @@ export const CURRICULUM = [
     name: 'Especializado',
     semesters: '7.º a 8.º semestre',
     subjects: [
-      { id: 'matematicas-avanzadas', name: 'Matemáticas Avanzadas para Ingeniería', available: true, topics: ['Transformada de Laplace', 'Series'] },
+      { id: 'matematicas-avanzadas', name: 'Matemáticas Avanzadas para Ingeniería', available: true, topics: ['Transformada de Laplace', 'Series', 'Series de Fourier', 'Transformada de Fourier'],
+        final: {
+          minutes: 60,
+          blocks: [
+            { name: 'Funciones analíticas y mapeos', topics: ['Funciones analíticas', 'Mapeos'], points: 25, count: 3 },
+            { name: 'Integración compleja', topics: ['Integración compleja'], points: 25, count: 3 },
+            { name: 'Series de Fourier', topics: ['Series de Fourier'], points: 25, count: 3 },
+            { name: 'Transformada de Fourier', topics: ['Transformada de Fourier'], points: 25, count: 3 },
+          ],
+        },
+      },
       { id: 'sistemas-senales', name: 'Análisis de Sistemas y Señales', available: true, topics: ['Señales y sistemas'] },
       { id: 'optimizacion', name: 'Optimización', available: true, topics: ['Optimización sin restricciones', 'Optimización con restricciones'] },
     ],

@@ -143,6 +143,25 @@ try {
     await page.waitForSelector('#tutor-input');
   });
 
+  await step('simulacro tipo final de Álgebra: 12 reactivos por bloques, con puntos', async () => {
+    await page.evaluate(() => { location.hash = ''; });
+    await page.waitForSelector('[data-final]');
+    await page.click('[data-final="Álgebra"]');
+    await page.waitForSelector('#exam-clock');
+    ok((await page.textContent('#exam-clock')).trim() === '60:00' || /^59:\d\d$/.test((await page.textContent('#exam-clock')).trim()), 'el simulacro no dura 60 min');
+    for (let i = 1; i <= 12; i++) {
+      await page.waitForFunction((n) => document.querySelector('#exam-progress')?.textContent.includes(`Pregunta ${n} de 12`), i);
+      ok(/^\d+(\.\d)? pts$/.test((await page.textContent('#exam-points')).trim()), 'faltan los puntos del reactivo');
+      ok((await page.locator('.question .katex-error').count()) === 0, 'error de KaTeX en el simulacro');
+      await page.click('.option >> nth=1');
+    }
+    await page.waitForSelector('#exam-score');
+    ok((await page.locator('#final-blocks li').count()) === 6, 'faltan los puntos por bloque');
+    ok(/de 100 puntos/.test(await page.textContent('.exam-result')), 'falta el total de puntos');
+    if (await page.locator('#close-levelup').count()) await page.click('#close-levelup');
+    await page.click('#exam-home');
+  });
+
   await step('sin conexión la app sigue funcionando (service worker)', async () => {
     offline = true;
     await ctx.setOffline(true);

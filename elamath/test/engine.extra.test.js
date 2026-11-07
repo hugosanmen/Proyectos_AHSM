@@ -15,10 +15,12 @@ import { Fraction, numericDistractors } from '../js/engine/utils.js';
 import { ORACLES_N4 } from './oracles/n4.js';
 import { ORACLES_N5 } from './oracles/n5.js';
 import { ORACLES_PLUS } from './oracles/plus.js';
+import { ORACLES_FI } from './oracles/fi.js';
 
-const ORACLES = { ...ORACLES_N1, ...ORACLES_N2, ...ORACLES_N3, ...ORACLES_N4, ...ORACLES_N5, ...ORACLES_PLUS };
+const ORACLES = { ...ORACLES_N1, ...ORACLES_N2, ...ORACLES_N3, ...ORACLES_N4, ...ORACLES_N5, ...ORACLES_PLUS, ...ORACLES_FI };
 // Respuestas cuyo LaTeX no puede evaluar el compilador de pruebas (π, i, intervalos…): se verifican con su oráculo.
-const NO_COMPILE = new Set(['mn-biseccion', 'vc-potencia-i', 'vc-division', 'vc-derivada', 'ss-periodo', 'ss-estabilidad', 'op-hessiana', 'vec-polar', 'vc-cauchy', 'ma-laplace-edo', 'mo-sistema-lineal']);
+const NO_COMPILE = new Set(['mn-biseccion', 'vc-potencia-i', 'vc-division', 'vc-derivada', 'ss-periodo', 'ss-estabilidad', 'op-hessiana', 'vec-polar', 'vc-cauchy', 'ma-laplace-edo', 'mo-sistema-lineal',
+  're-desigualdad-abs', 'cx-polar-operaciones', 'cx-demoivre', 'cx-raices', 'cx-ecuacion', 'fou-complejo', 'vc-integral-linea', 'vc-cauchy-derivada', 'vc-mapeo-z2', 'vc-mobius', 'vc-inversion']);
 
 const SEEDS = Number(process.env.SEEDS ?? 600);
 const balanced = (s) => (s.match(/{/g) ?? []).length === (s.match(/}/g) ?? []).length;

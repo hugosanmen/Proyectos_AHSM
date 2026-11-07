@@ -2,13 +2,22 @@
 //
 // Compila el LaTeX que verá el estudiante a una función numérica, para compararlo contra
 // un cálculo independiente. Soporta: números, x, y, e, + - , \cdot, multiplicación implícita,
-// ^ (con o sin llaves), paréntesis, \frac{}{}, \sin, \cos, \ln.
+// ^ (con o sin llaves), paréntesis, |valor absoluto|, \frac{}{}, \sqrt{}, \pi, \omega (variable w),
+// \sin, \cos, \tan, \sec, \csc, \cot, \ln y potencias de función como \sin^{2}(x).
 // Falla con error ante cualquier símbolo que no reconozca (no ignora nada en silencio).
 
-const FUNCS = { '\\sin': Math.sin, '\\cos': Math.cos, '\\ln': Math.log };
+const FUNCS = {
+  '\\sin': Math.sin,
+  '\\cos': Math.cos,
+  '\\tan': Math.tan,
+  '\\sec': (x) => 1 / Math.cos(x),
+  '\\csc': (x) => 1 / Math.sin(x),
+  '\\cot': (x) => 1 / Math.tan(x),
+  '\\ln': Math.log,
+};
 
 export function compileLatex(src) {
-  const toks = src.match(/\\[a-zA-Z]+|\d+(?:\.\d+)?|[a-zA-Z]|[-+^(){}]/g) ?? [];
+  const toks = src.match(/\\[a-zA-Z]+|\d+(?:\.\d+)?|[a-zA-Z]|[-+^(){}|]/g) ?? [];
   if (toks.join('') !== src.replace(/\s+/g, '')) {
     throw new Error(`LaTeX con símbolos no soportados: ${src}`);
   }
@@ -19,7 +28,7 @@ export function compileLatex(src) {
     i++;
   };
   const startsFactor = (t) =>
-    t !== undefined && (/^\d/.test(t) || /^[a-zA-Z]$/.test(t) || t === '(' || t === '\\frac' || Object.hasOwn(FUNCS, t));
+    t !== undefined && (/^\d/.test(t) || /^[a-zA-Z]$/.test(t) || t === '(' || t === '\\frac' || t === '\\sqrt' || t === '\\pi' || t === '\\omega' || Object.hasOwn(FUNCS, t));
 
   function expr() {
     let f = term();
@@ -87,6 +96,24 @@ export function compileLatex(src) {
       eat(')');
       return f;
     }
+    if (t === '\\pi') return () => Math.PI;
+    if (t === '\\omega') {
+      return (env) => {
+        if (!('w' in env)) throw new Error(`Variable "w" (ω) no definida al evaluar: ${src}`);
+        return env.w;
+      };
+    }
+    if (t === '|') {
+      const f = expr();
+      eat('|');
+      return (env) => Math.abs(f(env));
+    }
+    if (t === '\\sqrt') {
+      eat('{');
+      const f = expr();
+      eat('}');
+      return (env) => Math.sqrt(f(env));
+    }
     if (t === '\\frac') {
       eat('{');
       const n = expr();
@@ -98,8 +125,13 @@ export function compileLatex(src) {
     }
     if (Object.hasOwn(FUNCS, t)) {
       const fn = FUNCS[t];
+      let ex = null;
+      if (peek() === '^') {
+        i++;
+        ex = group();
+      }
       const arg = peek() === '(' ? atom() : power();
-      return (env) => fn(arg(env));
+      return ex ? (env) => Math.pow(fn(arg(env)), ex(env)) : (env) => fn(arg(env));
     }
     throw new Error(`Token no soportado "${t}" en: ${src}`);
   }

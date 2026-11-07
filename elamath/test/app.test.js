@@ -352,7 +352,7 @@ describe('todas las materias son practicables', () => {
     const vistos = new Set();
     for (const materia of materias) {
       await startMixed(c, materia);
-      for (let i = 0; i < 25; i++) {
+      for (let i = 0; i < 70; i++) {
         const p = c.api._practice();
         vistos.add(p.ex.templateId);
         if (c.q('#explain-btn')) await c.click(c.q('#explain-btn'));
