@@ -5,12 +5,13 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = 'f5fe9ea34a9c';
+const VERSION = '0001baf35726';
 // </build:version>
 
 // <build:precache>
 const PRECACHE = [
   "./",
+  "./admin.html",
   "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -18,6 +19,7 @@ const PRECACHE = [
   "./icons/icon.svg",
   "./icons/og-image.png",
   "./index.html",
+  "./js/admin.js",
   "./js/api.js",
   "./js/app.js",
   "./js/curriculum.js",
@@ -100,6 +102,11 @@ self.addEventListener('fetch', (event) => {
 
   // Navegación: siempre se sirve la app desde la caché (funciona sin conexión).
   if (req.mode === 'navigate') {
+    // El panel se pide siempre a la red: sus datos solo tienen sentido con conexión.
+    if (url.pathname.endsWith('/admin.html')) {
+      event.respondWith(fetch(req).catch(() => caches.match(req, { ignoreSearch: true })));
+      return;
+    }
     event.respondWith(caches.match('./index.html', { ignoreSearch: true }).then((hit) => hit || fetch(req)));
     return;
   }

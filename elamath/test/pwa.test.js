@@ -226,3 +226,19 @@ describe('service worker', () => {
     assert.equal(await w.dispatch('fetch', { request: { url: 'https://otro.com/x.js', method: 'GET', mode: 'cors' } }), undefined);
   });
 });
+
+describe('panel de estadísticas', () => {
+  const page = read('admin.html');
+  it('no se indexa, no usa scripts en línea y no carga recursos externos', () => {
+    assert.match(page, /name="robots" content="noindex/);
+    assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(page));
+    assert.ok(!/(?:href|src)="https?:/.test(page));
+    assert.match(read('robots.txt'), /Disallow: \/admin\.html/);
+  });
+  it('el service worker no lo sustituye por la app al navegar', () => {
+    assert.match(read('sw.js'), /admin\.html/);
+  });
+  it('nunca inserta HTML con datos del servidor', () => {
+    assert.doesNotMatch(read('js/admin.js'), /innerHTML|insertAdjacentHTML/);
+  });
+});

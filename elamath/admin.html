@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#002B49">
+  <title>Panel · ElaMath</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin">
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>ElaMath · Panel</span>
+    </div>
+    <div class="topbar-right">
+      <button id="refresh-btn" class="chip chip-btn" type="button" hidden>Actualizar</button>
+      <button id="logout-btn" class="chip chip-btn" type="button" hidden>Salir</button>
+    </div>
+  </header>
+
+  <main id="panel" class="admin-main" tabindex="-1">
+    <section id="login" class="card admin-login" aria-labelledby="login-title">
+      <h1 id="login-title">Estadísticas de ElaMath</h1>
+      <p>Escribe tu <code>ADMIN_TOKEN</code> de Vercel. Se usa solo en esta pestaña y se olvida al cerrarla.</p>
+      <form id="login-form" class="form">
+        <label for="token-input">Token de administración</label>
+        <input id="token-input" type="password" autocomplete="current-password" required>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <div class="actions"><button id="login-btn" class="btn btn-primary" type="submit">Ver estadísticas</button></div>
+      </form>
+    </section>
+    <div id="dash" hidden></div>
+  </main>
+
+  <noscript><p class="card">El panel necesita JavaScript.</p></noscript>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

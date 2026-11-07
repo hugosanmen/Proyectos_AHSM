@@ -104,6 +104,7 @@ El plan Hobby de Vercel permite 12 funciones; hoy hay 12, así que ya no caben m
 1. Sube la carpeta a un repositorio de GitHub e impórtalo en Vercel (Framework: Other; el resto lo toma de `vercel.json`).
 2. Añade Upstash Redis y las variables de la tabla (mínimo: `SESSION_SECRET`, `APP_URL`, `ADMIN_TOKEN`, `GROQ_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`; `PAY_INSTRUCTIONS` solo cuando enciendas el cobro). Redeploy.
 3. Consulta el diagnóstico con tu token: `curl -H "Authorization: Bearer TU_ADMIN_TOKEN" https://TU-APP.vercel.app/api/health`. Debe mostrar `"store":"upstash"`, `"email":true`, `"tutor":true`, `"provider":"groq"`, `"scan":true`. Sin token, la ruta solo responde `ok` y el precio.
+5. Para ver las estadísticas abre `https://TU-APP.vercel.app/admin.html` y escribe tu `ADMIN_TOKEN`. Los datos vienen de `/api/health?stats=1`, así que no gasta otra función de Vercel.
 4. Entra con tu correo: verás «👤 Cuenta» (con el cobro encendido: «🎁 Prueba · 30 d»). Prueba el tutor, el escáner y un examen. Crea un código y canjéalo desde otra cuenta.
 
 > Si algo no carga por la CSP (por ejemplo una fuente externa que añadas), ajusta `Content-Security-Policy` en `vercel.json`; no la quites completa.

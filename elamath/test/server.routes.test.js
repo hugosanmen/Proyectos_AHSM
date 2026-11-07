@@ -1,6 +1,7 @@
 // Pruebas de las rutas de la API de punta a punta (con almacén en memoria y la IA simulada)
 // y del adaptador HTTP que las conecta con las funciones de Vercel.
 
+import { todayMx } from '../server/quota.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
@@ -329,5 +330,44 @@ describe('POST /api/progress', () => {
     await routes.progress({ headers, body: { progress: {} } }, deps);
     for (const k of deps.store.m.keys()) if (k.startsWith('progress:')) await deps.store.set(k, 'no-es-json');
     assert.equal((await routes.progress({ headers, body: { progress: { xp: 9 } } }, deps)).body.progress.xp, 9);
+  });
+});
+
+describe('estadísticas del panel', () => {
+  it('solo con ADMIN_TOKEN y ?stats=1; sin correos en la respuesta', async () => {
+    const { deps, sent } = makeDeps();
+    assert.equal((await routes.health({ headers: {}, query: { stats: '1' } }, deps)).body.stats, undefined);
+    const { headers } = await loginAs(routes, deps, sent);
+    await routes.progress({ headers, body: { progress: { xp: 30, stats: { answered: 3, correct: 2 }, topics: { Límites: { recent: [true, false, true] } }, exams: [{ at: todayMx(deps.now()), label: 'X', score: 8, correct: 8, total: 10, seconds: 5 }] } } }, deps);
+    const st = (await routes.health({ headers: admin, query: { stats: '1' } }, deps)).body.stats;
+    assert.equal(st.accounts, 1);
+    assert.equal(st.withProgress, 1);
+    assert.equal(st.days.length, 30);
+    assert.equal(st.series.newAccounts.at(-1), 1);
+    assert.equal(st.series.active.at(-1), 1);
+    assert.equal(st.series.exams.at(-1), 1);
+    assert.deepEqual(st.exams, { total: 1, average: 8, passRate: 1 });
+    assert.deepEqual(st.topics[0], { topic: 'Límites', attempts: 3, correct: 2, students: 1, accuracy: 2 / 3 });
+    assert.doesNotMatch(JSON.stringify(st), /ana@correo|user:|progress:/);
+  });
+  it('cuenta activos una vez al día y solo los ejercicios nuevos', async () => {
+    const { deps, sent } = makeDeps();
+    const { headers } = await loginAs(routes, deps, sent);
+    const send = (answered, epoch = 0) => routes.progress({ headers, body: { progress: { epoch, stats: { answered, correct: 0 } } } }, deps);
+    await send(40); // primer envío: historial, no actividad de hoy
+    await send(45);
+    await send(45);
+    await send(52);
+    await send(0, 99); // reinicio: no resta ni suma
+    const st = (await routes.health({ headers: admin, query: { stats: '1' } }, deps)).body.stats;
+    assert.equal(st.series.active.at(-1), 1);
+    assert.equal(st.series.answered.at(-1), 12);
+  });
+  it('los mensajes del tutor del día alimentan la serie', async () => {
+    const { deps, sent } = makeDeps();
+    const { headers } = await loginAs(routes, deps, sent);
+    await routes.tutor({ headers, body: { message: 'hola' }, ip: '1.1.1.1' }, deps);
+    const st = (await routes.health({ headers: admin, query: { stats: '1' } }, deps)).body.stats;
+    assert.equal(st.series.tutor.at(-1), 1);
   });
 });

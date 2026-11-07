@@ -8,7 +8,8 @@
     "api/tutor.js": { "maxDuration": 30, "includeFiles": "js/engine/**" },
     "api/scan.js": { "maxDuration": 30 },
     "api/report.js": { "includeFiles": "js/engine/**" },
-    "api/progress.js": { "includeFiles": "js/logic.js" }
+    "api/progress.js": { "includeFiles": "js/logic.js" },
+    "api/health.js": { "includeFiles": "js/logic.js" }
   },
   "headers": [
     {

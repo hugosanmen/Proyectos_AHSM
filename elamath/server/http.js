@@ -61,7 +61,8 @@ export function wrap(route, { methods, maxBody = DEFAULT_MAX_BODY }) {
     }
     try {
       const body = req.method === 'GET' ? undefined : await readBody(req, maxBody);
-      const out = await route({ method: req.method, headers: req.headers, body, ip: clientIp(req) }, getDeps());
+      const query = Object.fromEntries(new URL(req.url ?? '/', 'http://local').searchParams);
+      const out = await route({ method: req.method, headers: req.headers, body, query, ip: clientIp(req) }, getDeps());
       return send(out.status, out.body);
     } catch (err) {
       if (err?.status === 413 || err?.status === 400) return send(err.status, { code: err.message });

@@ -8,6 +8,7 @@ import { safeEqual } from './crypto.js';
 import { effectivePlan, quotaStatus, refund, reserve, trialInfo } from './quota.js';
 import { createPromo, listPromos, redeemPromo } from './promo.js';
 import { syncProgress } from './progress.js';
+import { buildStats } from './stats.js';
 import { askScan, parseScanRequest } from './scan.js';
 import { llmConfigured } from './llm.js';
 import { listReports, submitReport } from './reports.js';
@@ -27,8 +28,11 @@ const planOf = (user, { config, now }) => effectivePlan(user, now(), config.bill
 
 export const routes = {
   // Público: solo lo que la app necesita. Con ADMIN_TOKEN agrega el diagnóstico del despliegue.
-  async health(ctx, { config, storeKind }) {
+  // Con ?stats=1 devuelve las estadísticas del panel: así no se necesita una función nueva de Vercel.
+  async health(ctx, deps) {
+    const { config, storeKind } = deps;
     if (!isAdmin(ctx, config)) return json(200, { ok: true, billing: publicBilling(config) });
+    if (ctx.query?.stats === '1') return json(200, { ok: true, stats: await buildStats(deps) });
     return json(200, {
       ok: true,
       store: storeKind,

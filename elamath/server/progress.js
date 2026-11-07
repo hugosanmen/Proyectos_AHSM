@@ -3,6 +3,7 @@
 
 import { allow, authenticate } from './auth.js';
 import { mergeProgress, normalizeProgress } from '../js/logic.js';
+import { recordActivity } from './stats.js';
 
 const key = (uid) => `progress:${uid}`;
 
@@ -23,5 +24,6 @@ export async function syncProgress(ctx, deps) {
   const merged = mergeProgress(saved, normalizeProgress(ctx.body.progress));
   const text = JSON.stringify(merged);
   if (!saved || JSON.stringify(saved) !== text) await store.set(key(auth.uid), text);
+  await recordActivity({ uid: auth.uid, saved, merged }, deps);
   return { status: 200, body: { progress: merged } };
 }

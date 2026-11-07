@@ -46,6 +46,7 @@ export const tutorLimit = (plan, config) => (plan === 'pro' ? config.limits.tuto
 const key = (uid, day) => `q:tutor:${uid}:${day}`;
 const globalKey = (day) => `q:tutor:global:${day}`;
 const TTL = 2 * 24 * 3600;
+const GLOBAL_TTL = 400 * 24 * 3600; // el total diario también alimenta el panel de estadísticas
 
 export async function quotaStatus(uid, plan, { store, config, now = () => Date.now() }) {
   const limit = tutorLimit(plan, config);
@@ -62,7 +63,7 @@ export async function reserve(uid, plan, { store, config, now = () => Date.now()
   if (limit <= 0) return { ok: false, reason: 'plan' };
   const day = todayMx(now());
 
-  const g = await store.incr(globalKey(day), { ex: TTL });
+  const g = await store.incr(globalKey(day), { ex: GLOBAL_TTL });
   if (g > config.limits.tutorGlobal) {
     await store.decr(globalKey(day));
     return { ok: false, reason: 'capacity' };

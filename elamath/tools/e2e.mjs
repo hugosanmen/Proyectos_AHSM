@@ -155,6 +155,18 @@ try {
     offline = false;
   });
 
+  await step('panel de estadísticas: rechaza un token falso y muestra los datos con el real', async () => {
+    await page.goto(`${srv.url}/admin.html`);
+    await page.fill('#token-input', 'token-falso');
+    await page.click('#login-btn');
+    await page.waitForSelector('#login-error:not([hidden])');
+    await page.fill('#token-input', srv.adminToken);
+    await page.click('#login-btn');
+    await page.waitForSelector('#kpis .kpi');
+    ok((await page.locator('.kpi').count()) === 5, 'faltan indicadores');
+    ok(/Cuentas/.test(await page.textContent('#kpis')), 'sin cuentas');
+  });
+
   await step('ninguna violación de CSP durante todo el recorrido', async () => {
     ok(problems.length === 0, `consola: ${problems.slice(0, 3).join(' | ')}`);
   });

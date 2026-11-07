@@ -3,7 +3,8 @@
 //   UpstashStore → Redis por REST (gratis desde el Marketplace de Vercel), sin dependencias
 //
 // Interfaz (todo async, valores siempre cadenas como en Redis):
-//   get, set(key, val, {ex}), del, getdel, incr(key, {ex}), decr, lpush(key, val, {max}), lrange(key, a, b)
+//   get, set(key, val, {ex}), del, getdel, incr(key, {ex}), incrby(key, n, {ex}), decr, lpush(key, val, {max}),
+//   lrange(key, a, b), scan(prefix, {limit}), mget(keys)
 
 export class MemoryStore {
   constructor({ now = () => Date.now() } = {}) {
@@ -45,6 +46,21 @@ export class MemoryStore {
     const n = (e ? parseInt(e.v, 10) || 0 : 0) + 1;
     this.m.set(key, { v: String(n), exp: e ? e.exp : ex ? this.now() + ex * 1000 : null });
     return n;
+  }
+
+  async incrby(key, n, { ex } = {}) {
+    const e = this._live(key);
+    const v = (e ? parseInt(e.v, 10) || 0 : 0) + n;
+    this.m.set(key, { v: String(v), exp: e ? e.exp : ex ? this.now() + ex * 1000 : null });
+    return v;
+  }
+
+  async scan(prefix, { limit = 10_000 } = {}) {
+    return [...this.m.keys()].filter((k) => k.startsWith(prefix) && this._live(k)).slice(0, limit);
+  }
+
+  async mget(keys) {
+    return Promise.all(keys.map((k) => this.get(k)));
   }
 
   async decr(key) {
@@ -112,6 +128,30 @@ export class UpstashStore {
 
   decr(key) {
     return this._cmd('DECR', key);
+  }
+
+  async incrby(key, n, { ex } = {}) {
+    const v = await this._cmd('INCRBY', key, n);
+    if (v === n && ex) await this._cmd('EXPIRE', key, ex);
+    return v;
+  }
+
+  /** Claves con el prefijo, recorriendo SCAN por tandas (no bloquea Redis como KEYS). */
+  async scan(prefix, { limit = 10_000 } = {}) {
+    const out = [];
+    let cursor = '0';
+    do {
+      const [next, keys] = await this._cmd('SCAN', cursor, 'MATCH', `${prefix}*`, 'COUNT', 1000);
+      cursor = String(next);
+      out.push(...keys);
+    } while (cursor !== '0' && out.length < limit);
+    return out.slice(0, limit);
+  }
+
+  async mget(keys) {
+    const out = [];
+    for (let i = 0; i < keys.length; i += 200) out.push(...(await this._cmd('MGET', ...keys.slice(i, i + 200))));
+    return out;
   }
 
   async lpush(key, val, { max } = {}) {
