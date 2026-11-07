@@ -303,7 +303,7 @@ export async function startApp(root, opts = {}) {
       h('button', { class: 'btn btn-ghost danger', type: 'button', onclick: resetProgress }, 'Reiniciar progreso'),
     );
 
-    root.replaceChildren(welcoming ? welcomeCard() : hero, welcoming ? null : reviewCard(L.weakTopics(state.topics)), tools, noResults, ...sections, footer);
+    put(root, welcoming ? welcomeCard() : hero, welcoming ? null : reviewCard(L.weakTopics(state.topics)), tools, noResults, ...sections, footer);
     if (ui.search) applySearch(ui.search);
   }
 

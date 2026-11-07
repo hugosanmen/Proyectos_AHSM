@@ -558,3 +558,13 @@ describe('idea clave', () => {
     assert.ok(c.q('#feedback .idea').textContent.includes(q.ex.idea));
   });
 });
+
+describe('inicio sin textos inválidos', () => {
+  it('ni la bienvenida ni el inicio con progreso muestran null o undefined', async () => {
+    const nuevo = await mount();
+    assert.doesNotMatch(nuevo.root.textContent, /null|undefined/);
+    const conProgreso = await mount({ store: memStore({ ...L.defaultState(), welcomed: true, xp: 20, stats: { answered: 3, correct: 3 } }) });
+    assert.equal(conProgreso.q('#review-card'), null);
+    assert.doesNotMatch(conProgreso.root.textContent, /null|undefined/);
+  });
+});
