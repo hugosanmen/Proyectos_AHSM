@@ -115,7 +115,7 @@ export async function startApp(root, opts = {}) {
   const fullAccess = () => Boolean(account && (account.plan === 'pro' || account.plan === 'trial' || account.plan === 'open'));
   const billingOn = () => account?.billing?.enabled ?? backend.billing?.enabled ?? false; // ¿ya se cobra? (apagado en la etapa de pruebas)
   const billing = () => account?.billing ?? backend.billing ?? { priceMxn: PLANS.monthly, trialDays: 30, instructions: '' };
-  const planName = () => (account?.plan === 'trial' ? 'Prueba gratis' : account?.plan === 'pro' ? 'Pro' : account?.plan === 'open' ? 'Acceso completo' : 'Gratis');
+  const planName = () => (account?.plan === 'trial' ? 'Prueba gratis' : account?.plan === 'pro' ? (account.founder ? 'Fundador' : 'Pro') : account?.plan === 'open' ? 'Acceso completo' : 'Gratis');
   const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
   const fmtDate = (iso) => new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
 
@@ -149,7 +149,7 @@ export async function startApp(root, opts = {}) {
     const streak = L.currentStreak(state.streak, today());
     const plansLabel = backend.available && !billingOn() ? 'Beneficios' : 'Planes'; // sin cobro no hay planes que elegir
     const left = account?.tutor?.limit > 0 ? account.tutor.remaining : null; // la única cuota es la del tutor
-    const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? '⭐ Pro' : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
+    const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? (account.founder ? '⭐ Fundador' : '⭐ Pro') : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
     put(
       hud,
       h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nv. ${info.level}`),
@@ -594,6 +594,7 @@ export async function startApp(root, opts = {}) {
     let status = null;
     if (account) {
       if (account.plan === 'trial') status = `Tu prueba gratis termina el ${fmtDate(account.trial.endsAt)} (${account.trial.daysLeft} ${account.trial.daysLeft === 1 ? 'día' : 'días'}). Todo está desbloqueado.`;
+      else if (account.plan === 'pro' && account.founder) status = 'Eres de las primeras cuentas de ElaMath: tienes acceso completo y permanente, sin pagar.';
       else if (account.plan === 'pro') status = account.proUntil ? `Tu Pro está activo hasta el ${fmtDate(account.proUntil)}.` : 'Tu Pro está activo.';
       else status = 'Tu prueba gratis terminó. La práctica básica sigue gratis; el Peer Tutor, los exámenes y el escáner requieren Pro.';
     }
@@ -761,7 +762,9 @@ export async function startApp(root, opts = {}) {
           ? 'Acceso completo y gratis durante la etapa de pruebas'
           : account.plan === 'trial'
           ? `Plan: Prueba gratis · termina el ${fmtDate(account.trial.endsAt)} (${account.trial.daysLeft} d)`
-          : account.plan === 'pro'
+          : account.plan === 'pro' && account.founder
+            ? 'Plan: Fundador · acceso completo y permanente'
+            : account.plan === 'pro'
             ? `Plan: Pro${account.proUntil ? ` · hasta el ${fmtDate(account.proUntil)}` : ''}`
             : 'Plan: Gratis (tu prueba terminó)';
       body = [

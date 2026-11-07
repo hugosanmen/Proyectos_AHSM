@@ -34,6 +34,7 @@ export function makeDeps({ env = {}, anthropic = {}, clock = makeClock(), mailer
     RESEND_API_KEY: 're_test',
     EMAIL_FROM: 'ElaMath <hola@elamath.test>',
     ADMIN_TOKEN: ADMIN,
+    FOUNDERS_LIMIT: '0', // sin fundadores salvo en sus propias pruebas
     BILLING_ENABLED: '1', // las pruebas de cobro/prueba gratis parten de cobro activo; las de etapa de pruebas lo apagan
     ...env,
   });

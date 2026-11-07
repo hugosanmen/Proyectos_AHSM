@@ -7,6 +7,7 @@
 // La sesión viaja en una cabecera (no en cookie), así que no hay riesgo de CSRF.
 
 import { randomToken, sha256Hex, signToken, verifyToken } from './crypto.js';
+import { asFounder, claimFounderSeat, ensureFounders } from './founders.js';
 
 export const LOGIN_TTL_S = 15 * 60;
 export const SESSION_TTL_S = 30 * 24 * 3600;
@@ -67,7 +68,9 @@ export async function verifyLogin({ token }, { store, config, now = () => Date.n
 
   let user = await getUser(store, uid);
   if (!user) {
+    await ensureFounders({ store, config }); // reparte primero los lugares entre las cuentas que ya existían
     user = { email, createdAt: new Date(now()).toISOString(), plan: 'free' };
+    if (await claimFounderSeat({ store, config })) user = asFounder(user);
     await store.set(`user:${uid}`, JSON.stringify(user));
   }
   const session = signToken({ typ: 'session', uid, exp: Math.floor(now() / 1000) + SESSION_TTL_S }, config.sessionSecret);

@@ -5,6 +5,7 @@
 
 import { authenticate, getUser, normalizeEmail, requestLogin, uidFor, verifyLogin } from './auth.js';
 import { safeEqual } from './crypto.js';
+import { ensureFounders } from './founders.js';
 import { effectivePlan, quotaStatus, refund, reserve, trialInfo } from './quota.js';
 import { createPromo, listPromos, redeemPromo } from './promo.js';
 import { syncProgress } from './progress.js';
@@ -57,12 +58,16 @@ export const routes = {
   async me(ctx, deps) {
     const auth = await authenticate(ctx.headers, deps);
     if (!auth) return json(401, { code: 'unauthorized' });
+    await ensureFounders(deps); // las cuentas que ya existían reciben su lugar aunque no vuelvan a entrar por enlace
+    const fresh = (await getUser(deps.store, auth.uid)) ?? auth.user;
+    auth.user = fresh;
     const plan = planOf(auth.user, deps);
     return json(200, {
       email: auth.user.email,
       plan,
       trial: trialInfo(auth.user, deps.now(), deps.config.billing.trialDays),
       proUntil: auth.user.plan === 'pro' ? auth.user.proUntil ?? null : null,
+      founder: auth.user.plan === 'pro' && auth.user.founder === true,
       billing: billingInfo(deps.config),
       tutor: await quotaStatus(auth.uid, plan, deps),
     });

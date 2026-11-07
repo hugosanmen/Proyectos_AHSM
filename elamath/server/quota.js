@@ -27,8 +27,9 @@ export function trialEnd(user, trialDays = 30) {
  * 'free'  → todo lo demás (la práctica básica sigue gratis; el tutor, el escáner y los exámenes requieren trial/pro).
  */
 export function effectivePlan(user, now = Date.now(), trialDays = 30, billingEnabled = true) {
-  if (!billingEnabled && user) return 'open'; // etapa de pruebas: todo abierto para quien tenga cuenta
+  // Pro va primero: fundadores y Pro conservan su plan (y su límite del tutor) aunque el cobro esté apagado.
   if (user?.plan === 'pro' && !(user.proUntil && Date.parse(user.proUntil) <= now)) return 'pro';
+  if (!billingEnabled && user) return 'open'; // etapa de pruebas: todo abierto para quien tenga cuenta
   const end = trialEnd(user, trialDays);
   if (end !== null && now < end) return 'trial';
   return 'free';

@@ -27,7 +27,7 @@ const step = async (name, fn) => {
 };
 const ok = (cond, msg) => { if (!cond) throw new Error(msg); };
 
-const srv = await startDevServer({ port: 0, quiet: true, env: { ...process.env, BILLING_ENABLED: '1' } }); // recorrido con cobro encendido
+const srv = await startDevServer({ port: 0, quiet: true, env: { ...process.env, BILLING_ENABLED: '1', FOUNDERS_LIMIT: '0' } }); // recorrido con cobro encendido
 const browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
 const page = await ctx.newPage();
@@ -192,7 +192,7 @@ try {
 
   // ── Etapa de pruebas (valor por defecto): sin cobro, todo abierto con cuenta ──
   console.log('E2E con el cobro apagado (como se publica hoy)');
-  const open = await startDevServer({ port: 0, quiet: true, env: { ...process.env, BILLING_ENABLED: '' } });
+  const open = await startDevServer({ port: 0, quiet: true, env: { ...process.env, BILLING_ENABLED: '', FOUNDERS_LIMIT: '0' } });
   const p2 = await (await browser.newContext({ viewport: { width: 420, height: 900 } })).newPage();
   p2.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   try {

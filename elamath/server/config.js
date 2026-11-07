@@ -48,6 +48,7 @@ export function loadConfig(env = process.env) {
       priceMxn: toInt(env.PRO_PRICE_MXN, 50), // precio de Pro por mes
       instructions: (env.PAY_INSTRUCTIONS || '').slice(0, 600), // cómo pagar mientras el cobro sea manual
     },
+    foundersLimit: toInt(env.FOUNDERS_LIMIT, 20), // primeros correos con Pro permanente (0 = ninguno)
     limits: {
       tutorPro: toInt(env.TUTOR_PRO_DAILY, 40), // mensajes al Peer Tutor por día
       tutorTrial: toInt(env.TUTOR_TRIAL_DAILY, toInt(env.TUTOR_PRO_DAILY, 40)), // durante la prueba gratis

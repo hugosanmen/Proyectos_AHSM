@@ -5,7 +5,7 @@
 // NO edites el bloque entre los marcadores a mano.
 
 // <build:version>
-const VERSION = '6ab96e835a83';
+const VERSION = 'cfdedbee4846';
 // </build:version>
 
 // <build:precache>

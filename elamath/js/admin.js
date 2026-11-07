@@ -7,7 +7,7 @@ const TOKEN_KEY = 'elamath:admin-token';
 const nf = new Intl.NumberFormat('es-MX');
 const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
 const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const PLAN_NAMES = { open: 'Acceso completo (etapa de pruebas)', trial: 'Prueba gratis', pro: 'Pro', free: 'Gratis' };
+const PLAN_NAMES = { open: 'Acceso completo (etapa de pruebas)', trial: 'Prueba gratis', founder: 'Fundador (Pro permanente)', pro: 'Pro', free: 'Gratis' };
 const KIND_NAMES = { math_error: 'Resultado o enunciado', ui: 'Interfaz', other: 'Otro' };
 
 function h(tag, props = {}, ...kids) {

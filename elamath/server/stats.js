@@ -59,7 +59,8 @@ export async function buildStats({ store, config, now = () => Date.now() }) {
     const created = Date.parse(u.createdAt ?? '');
     const i = Number.isNaN(created) ? undefined : index.get(todayMx(created));
     if (i !== undefined) newAccounts[i]++;
-    const plan = effectivePlan(u, t, config.billing.trialDays, config.billing.enabled);
+    const base = effectivePlan(u, t, config.billing.trialDays, config.billing.enabled);
+    const plan = base === 'pro' && u.founder ? 'founder' : base;
     plans[plan] = (plans[plan] ?? 0) + 1;
   }
 
