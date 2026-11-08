@@ -55,7 +55,14 @@ export function loadConfig(env = process.env) {
       tutorFree: toInt(env.TUTOR_FREE_DAILY, 0), // 0 = el tutor es solo Pro
       tutorGlobal: toInt(env.TUTOR_GLOBAL_DAILY, 2000), // freno de emergencia para todo el servicio
     },
-    email: { resendKey: env.RESEND_API_KEY || '', from: env.EMAIL_FROM || '' },
+    email: {
+      resendKey: env.RESEND_API_KEY || '',
+      from: env.EMAIL_FROM || '',
+      // Gmail mientras no haya dominio verificado: la contraseña de aplicación de Google se pega con o sin espacios.
+      gmailUser: (env.GMAIL_USER || '').trim(),
+      gmailAppPassword: (env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''),
+      fromName: env.EMAIL_FROM_NAME || 'ElaMath',
+    },
     store: {
       url: env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL || '',
       token: env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN || '',

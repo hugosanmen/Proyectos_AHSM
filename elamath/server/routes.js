@@ -38,7 +38,7 @@ export const routes = {
       ok: true,
       store: storeKind,
       auth: Boolean(config.sessionSecret && config.appUrl),
-      email: Boolean(config.email.resendKey && config.email.from) || config.devMode,
+      email: Boolean((config.email.resendKey && config.email.from) || (config.email.gmailUser && config.email.gmailAppPassword)) || config.devMode,
       tutor: llmConfigured(config),
       provider: config.llm.provider || null,
       scan: llmConfigured(config) && Boolean(config.llm.models.vision),
