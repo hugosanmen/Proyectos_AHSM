@@ -16,7 +16,18 @@ export function createMailer(config, fetchFn = (...a) => globalThis.fetch(...a))
       } catch {
         throw new Error('email_failed');
       }
-      if (!res.ok) throw new Error('email_failed');
+      if (!res.ok) {
+        // Deja en los registros de Vercel el motivo que da Resend (sin la clave ni el destinatario).
+        let detail = '';
+        try {
+          const j = await res.json();
+          detail = `${j?.name ?? ''} ${j?.message ?? ''}`.replace(/[\w.+-]+@[\w.-]+/g, '<correo>').slice(0, 300);
+        } catch {
+          /* sin cuerpo JSON */
+        }
+        console.error(`[mail] resend ${res.status} ${detail}`.trim());
+        throw new Error('email_failed');
+      }
     },
   };
 }
