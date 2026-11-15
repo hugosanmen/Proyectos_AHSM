@@ -10,6 +10,7 @@ import katex from 'katex';
 import 'fake-indexeddb/auto';
 import { createRng } from '../js/engine/utils.js';
 import * as L from '../js/logic.js';
+import { makeSeek, openSubject } from './nav.helpers.js';
 
 const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
 const NOW = new Date(2026, 9, 20, 10, 0, 0); // martes 20-oct-2026
@@ -61,8 +62,12 @@ async function mount({ store = memStore(), seed = 7, confirm = true, url = 'http
   const rng = createRng(seed);
   const api = await startApp(root, { store, now: () => NOW, random: () => rng.next() });
   await tick();
-  const q = (sel, scope = doc) => scope.querySelector(sel);
-  const qa = (sel, scope = doc) => [...scope.querySelectorAll(sel)];
+  const seek = makeSeek(doc, (v) => api.go(v));
+  const q = (sel, scope) => (scope ? scope.querySelector(sel) : seek(sel));
+  const qa = (sel, scope) => {
+    if (!scope) seek(sel);
+    return [...(scope ?? doc).querySelectorAll(sel)];
+  };
   const byText = (sel, text) => qa(sel).find((el) => el.textContent.includes(text));
   const click = async (el) => {
     assert.ok(el, 'elemento a pulsar no encontrado');
@@ -80,9 +85,8 @@ async function mount({ store = memStore(), seed = 7, confirm = true, url = 'http
 /** Inicia la práctica mixta de Cálculo Diferencial y devuelve el ejercicio actual. */
 /** Inicia la práctica mixta de una materia (por defecto Cálculo Diferencial). */
 async function startMixed(ctx, materia = 'Cálculo Diferencial') {
-  const card = ctx.qa('article.subject').find((a) => a.querySelector('h3')?.textContent === materia);
-  assert.ok(card, `no hay tarjeta de ${materia}`);
-  await ctx.click(card.querySelector('.btn-primary'));
+  assert.ok(openSubject(ctx.doc, (v) => ctx.api.go(v), materia), `no hay tarjeta de ${materia}`);
+  await ctx.click(ctx.doc.querySelector('#mixed-btn'));
   return ctx.api._practice();
 }
 const correctIdx = (p) => p.ex.options.findIndex((o) => o.correct);
@@ -96,9 +100,9 @@ describe('inicio', () => {
     assert.equal(c.qa('details.level[open]').length, 1, 'solo el nivel del alumno abierto');
     assert.equal(c.qa('article.subject').length, 16);
     assert.equal(c.qa('.subject.disabled').length, 0, 'ninguna materia queda como «próximamente»');
-    assert.match(c.q('#plans-chip').textContent, /Planes/);
+    assert.match(c.q('#plans-chip').textContent, /Ver planes/);
     assert.doesNotMatch(c.q('#hud').textContent, /consultas/);
-    assert.match(c.q('#hud').textContent, /Nv\. 1/);
+    assert.match(c.q('#hud').textContent, /Nivel 1/);
     for (const topic of ['Límites', 'Derivadas', 'Aplicaciones de la derivada', 'Ecuaciones y sistemas', 'Matrices', 'Transformada de Laplace', 'Sistemas dinámicos']) {
       assert.ok(c.q(`button[aria-label="Practicar ${topic}"]`), topic);
     }
@@ -111,8 +115,9 @@ describe('inicio', () => {
     const store = memStore({ ...L.defaultState(), xp: 55, topics: { Límites: { recent: Array(10).fill(true) } } });
     const c = await mount({ store });
     assert.match(c.q('h1').textContent, /Nivel 2 · Principiante/);
-    assert.match(c.root.textContent, /Dominio 100% · ¡Dominado!/);
     assert.match(c.q('.hero').textContent, /15 \/ 60 XP/);
+    assert.ok(openSubject(c.doc, (v) => c.api.go(v), 'Cálculo Diferencial'));
+    assert.match(c.root.textContent, /Dominio 100% · ¡Dominado!/);
   });
 });
 
@@ -203,11 +208,13 @@ describe('práctica', () => {
     assert.equal(c.api._practice().picked, 1, 'las letras A-D también funcionan');
   });
 
-  it('volver a Materias regresa al inicio', async () => {
+  it('volver desde la práctica regresa a la pantalla de la materia', async () => {
     const c = await mount();
     await startMixed(c);
-    await c.click(c.byText('button', '← Materias'));
-    assert.match(c.q('h1').textContent, /Nivel 1/);
+    await c.click(c.q('#practice-back'));
+    assert.match(c.q('h1').textContent, /Cálculo Diferencial/);
+    assert.equal(c.w.location.hash, '#/materias/calculo-diferencial');
+    assert.ok(c.doc.querySelector('button[aria-label="Practicar Límites"]'));
   });
 });
 
@@ -309,7 +316,7 @@ describe('reinicio de progreso', () => {
   it('con confirmación borra todo', async () => {
     const store = memStore({ ...L.defaultState(), xp: 200, stats: { answered: 9, correct: 7 } });
     const c = await mount({ store, confirm: true });
-    await c.click(c.byText('button', 'Reiniciar progreso'));
+    await c.click(c.q('#reset-btn'));
     assert.equal(c.api.getState().xp, 0);
     assert.equal(c.store.saved.xp, 0);
   });
@@ -317,7 +324,7 @@ describe('reinicio de progreso', () => {
   it('si el estudiante cancela, no se borra nada', async () => {
     const store = memStore({ ...L.defaultState(), xp: 200 });
     const c = await mount({ store, confirm: false });
-    await c.click(c.byText('button', 'Reiniciar progreso'));
+    await c.click(c.q('#reset-btn'));
     assert.equal(c.api.getState().xp, 200);
   });
 });
@@ -363,7 +370,7 @@ describe('todas las materias son practicables', () => {
         assert.ok(!/null|false|undefined/.test(c.q('#hud').textContent), `HUD con texto inválido: ${c.q('#hud').textContent}`);
         await c.click(c.q('#next-btn'));
       }
-      await c.click(c.byText('button', '← Materias'));
+      await c.click(c.q('#practice-back'));
     }
     const { templates } = await import('../js/engine/index.js');
     const faltan = templates.filter((t) => !vistos.has(t.id)).map((t) => t.id);
@@ -377,7 +384,7 @@ describe('todas las materias son practicables', () => {
       assert.ok(c.api._practice().ex.difficulty >= 3, `dificultad ${c.api._practice().ex.difficulty}`);
       await c.click(c.q('#next-btn'));
     }
-    await c.click(c.byText('button', '← Materias'));
+    await c.click(c.q('#practice-back'));
     await startMixed(c, 'Exámenes de Preparación');
     const temas = new Set();
     for (let i = 0; i < 40; i++) {
@@ -448,8 +455,8 @@ describe('rutas', () => {
     assert.equal(c.w.location.hash, '#/practica/calculo-diferencial');
     assert.match(c.doc.title, /Cálculo Diferencial/);
     await back(c);
-    assert.ok(c.q('#home-search'), 'volvió al inicio');
-    assert.equal(c.w.location.hash, '');
+    assert.ok(c.doc.querySelector('#mixed-btn'), 'volvió a la materia');
+    assert.equal(c.w.location.hash, '#/materias/calculo-diferencial');
     c.w.history.forward();
     await new Promise((r) => c.w.addEventListener('popstate', () => setTimeout(r, 5), { once: true }));
     assert.ok(c.q('#q-title'), 'regresó al ejercicio');
@@ -488,7 +495,7 @@ describe('bienvenida e inicio corto', () => {
     assert.equal(c.w.location.hash, '#/practica/metodos-numericos');
     const st = c.api.getState();
     assert.deepEqual([st.welcomed, st.homeLevel], [true, 3]);
-    await c.click(c.byText('button', '← Materias'));
+    await c.click(c.q('#practice-back'));
     assert.equal(c.q('#welcome-skip'), null, 'la bienvenida no se repite');
     assert.deepEqual(c.qa('details.level[open]').map((d) => d.dataset.level), ['3']);
     assert.match(c.q('#continue-btn').textContent, /Continuar: Métodos Numéricos/);
@@ -499,7 +506,8 @@ describe('bienvenida e inicio corto', () => {
   it('se puede saltar y cambiar de semestre; quien ya tiene progreso no la ve', async () => {
     const c = await mount();
     await c.click(c.q('#welcome-skip'));
-    assert.match(c.q('h1').textContent, /Nivel 1/);
+    assert.match(c.q('h1').textContent, /Materias/);
+    assert.equal(c.w.location.hash, '#/materias');
     const sel = c.q('#home-level');
     sel.value = '4';
     sel.dispatchEvent(new c.w.Event('change', { bubbles: true }));
@@ -566,5 +574,89 @@ describe('inicio sin textos inválidos', () => {
     const conProgreso = await mount({ store: memStore({ ...L.defaultState(), welcomed: true, xp: 20, stats: { answered: 3, correct: 3 } }) });
     assert.equal(conProgreso.q('#review-card'), null);
     assert.doesNotMatch(conProgreso.root.textContent, /null|undefined/);
+  });
+});
+
+describe('secciones y barra inferior', () => {
+  const welcomed = () => memStore({ ...L.defaultState(), welcomed: true, xp: 20, stats: { answered: 3, correct: 2 } });
+
+  it('la barra lleva a las cuatro secciones, marca la actual y cada una tiene URL', async () => {
+    const c = await mount({ store: welcomed() });
+    const tabs = c.qa('#tabbar .tab');
+    assert.deepEqual(tabs.map((t) => t.textContent), ['Inicio', 'Materias', 'Exámenes', 'Cuenta']);
+    assert.equal(c.doc.querySelector('#tabbar [aria-current="page"]').id, 'tab-home');
+    for (const [id, hash, h1] of [['tab-subjects', '#/materias', /Materias/], ['tab-exams', '#/examenes', /Exámenes/], ['tab-account', '#/cuenta', /Cuenta/], ['tab-home', '', /Nivel 1/]]) {
+      await c.click(c.doc.getElementById(id));
+      assert.equal(c.w.location.hash, hash);
+      assert.match(c.doc.querySelector('main h1').textContent, h1);
+      assert.equal(c.doc.querySelector('#tabbar [aria-current="page"]').id, id);
+      assert.equal(c.doc.querySelectorAll('main h1').length, 1, 'un solo h1 por pantalla');
+    }
+  });
+
+  it('enlaces directos abren cada sección y la pantalla de una materia; una materia inexistente cae en Materias', async () => {
+    assert.match((await mount({ url: 'https://elamath.test/#/examenes' })).doc.querySelector('h1').textContent, /Exámenes/);
+    assert.match((await mount({ url: 'https://elamath.test/#/cuenta' })).doc.querySelector('h1').textContent, /Cuenta/);
+    const materia = await mount({ url: 'https://elamath.test/#/materias/algebra' });
+    assert.match(materia.doc.querySelector('h1').textContent, /Álgebra/);
+    assert.equal(materia.doc.querySelector('#tabbar [aria-current="page"]').id, 'tab-subjects');
+    const mal = await mount({ url: 'https://elamath.test/#/materias/no-existe' });
+    assert.match(mal.doc.querySelector('h1').textContent, /Materias/);
+    assert.equal(mal.w.location.hash, '#/materias');
+  });
+
+  it('Inicio es corto: avance, accesos directos y nada de la lista de materias', async () => {
+    const c = await mount({ store: welcomed() });
+    assert.equal(c.doc.querySelectorAll('article.subject').length, 0);
+    assert.ok(c.doc.querySelector('#start-btn'), 'sin práctica previa invita a elegir materia');
+    await c.click(c.doc.querySelector('#home-exams'));
+    assert.equal(c.w.location.hash, '#/examenes');
+    c.api.go('home');
+    await c.click(c.doc.querySelector('#home-subjects'));
+    assert.equal(c.w.location.hash, '#/materias');
+  });
+
+  it('la lista de materias es compacta y la pantalla de la materia tiene temas, práctica mixta y exámenes', async () => {
+    const c = await mount({ store: welcomed() });
+    c.api.go('subjects');
+    assert.equal(c.doc.querySelectorAll('article.subject .topics:not([hidden])').length, 0, 'los temas no se listan hasta buscar');
+    assert.ok(openSubject(c.doc, (v) => c.api.go(v), 'Álgebra'));
+    assert.equal(c.w.location.hash, '#/materias/algebra');
+    assert.equal(c.doc.querySelectorAll('.topic').length, 8);
+    assert.ok(c.doc.querySelector('#mixed-btn') && c.doc.querySelector('[data-exam="Álgebra"]') && c.doc.querySelector('[data-final="Álgebra"]'));
+    await c.click(c.doc.querySelector('#subject-back'));
+    assert.equal(c.w.location.hash, '#/materias');
+  });
+
+  it('en práctica la barra se oculta y al responder aparece el resultado fijo con «Siguiente»', async () => {
+    const c = await mount({ store: welcomed() });
+    const p = await startMixed(c);
+    assert.equal(c.doc.getElementById('tabbar').hidden, true);
+    assert.equal(c.doc.querySelector('#answer-bar'), null);
+    assert.ok(c.doc.querySelector('.help #explain-btn'), 'las ayudas van agrupadas');
+    assert.ok(c.doc.querySelector('.minor-actions #next-btn'), '«Saltar» es un enlace discreto');
+    await c.click(c.qa('button.option')[wrongIdx(p)]);
+    const bar = c.doc.querySelector('#answer-bar');
+    assert.match(bar.textContent, /Incorrecto/);
+    assert.ok(bar.querySelector('#next-btn.btn-primary'));
+    assert.equal(c.doc.querySelectorAll('#next-btn').length, 1);
+    await c.click(bar.querySelector('#next-btn'));
+    assert.equal(c.doc.querySelector('#answer-bar'), null);
+    await c.click(c.doc.querySelector('#practice-back'));
+    assert.equal(c.doc.getElementById('tabbar').hidden, false);
+  });
+
+  it('Exámenes lista las materias y muestra el historial de calificaciones', async () => {
+    const vacio = await mount({ store: welcomed() });
+    vacio.api.go('exams');
+    assert.ok(vacio.doc.querySelector('#exam-history-empty'));
+    assert.equal(vacio.doc.querySelectorAll('[data-exam]').length, 16);
+    const store = memStore({ ...L.defaultState(), welcomed: true, exams: [{ at: '2026-10-18', label: 'Álgebra', score: 4, correct: 4, total: 10, seconds: 600 }, { at: '2026-10-19', label: 'Cálculo Integral', score: 8, correct: 8, total: 10, seconds: 500 }] });
+    const c = await mount({ store });
+    c.api.go('exams');
+    const rows = [...c.doc.querySelectorAll('#exam-history li')];
+    assert.equal(rows.length, 2);
+    assert.match(rows[0].textContent, /Cálculo Integral.*8\.0 \/ 10/, 'el más reciente primero');
+    assert.ok(rows[0].querySelector('.score.ok') && rows[1].querySelector('.score.bad'));
   });
 });

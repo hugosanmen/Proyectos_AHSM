@@ -36,11 +36,15 @@ let offline = false;
 page.on('console', (m) => { if (offline && /ERR_INTERNET_DISCONNECTED/.test(m.text())) return; if (m.type() === 'error' || /Content Security Policy|Refused to/i.test(m.text())) problems.push(m.text()); });
 page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 
+/** Cambia de pantalla por su URL (la app atiende el cambio de # igual que el botón Atrás). */
+const goTo = (hash) => page.evaluate((h) => { location.hash = h; }, hash);
+
 console.log(`E2E contra ${srv.url}`);
 try {
   await step('carga la app sin violaciones de CSP ni errores de consola', async () => {
     await page.goto(srv.url);
-    await page.waitForSelector('#account-chip');
+    await page.waitForSelector('#tabbar .tab');
+    ok((await page.locator('#tabbar .tab').count()) === 4, 'faltan secciones en la barra inferior');
     ok(problems.length === 0, `consola: ${problems.join(' | ')}`);
   });
 
@@ -50,14 +54,21 @@ try {
   });
 
   await step('practica: KaTeX renderiza el enunciado y las opciones', async () => {
-    await page.click('button[aria-label^="Practicar"]');
+    await page.click('#tab-subjects');
+    await page.click('.subject-open >> nth=0');
+    await page.click('button[aria-label^="Practicar"] >> nth=0');
     await page.waitForSelector('.question .katex');
     ok((await page.locator('.option .katex').count()) === 4, 'faltan opciones renderizadas');
+    ok(await page.isHidden('#tabbar'), 'la barra debe ocultarse en la práctica');
   });
 
   await step('responder da retroalimentación', async () => {
     await page.click('.option >> nth=0');
     await page.waitForSelector('#feedback');
+    await page.waitForFunction(() => {
+      const r = document.querySelector('#answer-bar #next-btn')?.getBoundingClientRect();
+      return r && r.top >= 0 && r.bottom <= innerHeight;
+    });
   });
 
   await step('reportar error llega al servidor', async () => {
@@ -75,17 +86,20 @@ try {
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
   await step('login por enlace de desarrollo (sin contraseña) → empieza la prueba gratis de 30 días', async () => {
+    await goTo('#/cuenta');
     await page.click('#account-chip');
     await page.fill('#email-input', 'ana@correo.com');
     await page.click('#send-link');
     await page.waitForSelector('#dev-link');
     await page.click('#dev-link');
-    await page.waitForSelector('#account-chip:has-text("Prueba · 30 d")');
+    await page.waitForSelector('#tabbar .tab');
+    await goTo('#/cuenta');
+    await page.waitForSelector('#account-plan:has-text("Prueba · 30 d")');
     ok(!page.url().includes('login='), 'el token sigue en la URL');
   });
 
   await step('en la prueba el tutor responde con fórmulas y descuenta la cuota', async () => {
-    await page.click('button[aria-label^="Practicar"]');
+    await goTo('#/practica/algebra');
     await page.click('#tutor-btn');
     await page.click('[data-mode="hint"]');
     await page.waitForSelector('.bubble.bot:not(.typing) .katex');
@@ -106,7 +120,7 @@ try {
   });
 
   await step('examen simulado: 10 preguntas sin retroalimentación y resultado', async () => {
-    await page.click('text=← Materias');
+    await goTo('#/examenes');
     await page.click('[data-exam] >> nth=0');
     await page.waitForSelector('#exam-clock');
     ok(/^\d\d:\d\d$/.test((await page.textContent('#exam-clock')).trim()), 'reloj mal formado');
@@ -120,6 +134,8 @@ try {
     ok((await page.locator('details.review').count()) === 10, 'falta la revisión');
     if (await page.locator('#close-levelup').count()) await page.click('#close-levelup'); // el examen puede subir de nivel
     await page.click('#exam-home');
+    await page.waitForSelector('#exam-history li');
+    await page.click('#tab-home');
     await page.waitForSelector('#last-exam');
   });
 
@@ -127,8 +143,10 @@ try {
     ok((await admin('plan', { email: 'ana@correo.com', plan: 'free' })).ok, 'admin/plan falló');
     ok((await admin('promo', { code: 'E2E-PROMO', days: 30, maxUses: 5 })).ok, 'admin/promo falló');
     await page.reload();
-    await page.waitForSelector('#account-chip:has-text("Cuenta")');
-    await page.click('button[aria-label^="Practicar"]');
+    await page.waitForSelector('#tabbar .tab');
+    await goTo('#/cuenta');
+    await page.waitForSelector('#account-plan:has-text("Gratis")');
+    await goTo('#/practica/algebra');
     await page.click('#tutor-btn');
     await page.waitForSelector('#tutor-upgrade');
     await page.click('#tutor-upgrade');
@@ -137,14 +155,13 @@ try {
     await page.fill('#promo-input', 'e2e-promo');
     await page.click('#promo-send');
     await page.waitForSelector('#promo-status:has-text("Sumaste 30 días")');
-    await page.waitForSelector('#account-chip:has-text("Pro")');
     await page.click('#close-pro'); // sigue en la práctica
     await page.click('#tutor-btn');
     await page.waitForSelector('#tutor-input');
   });
 
   await step('simulacro tipo final de Álgebra: 12 reactivos por bloques, con puntos', async () => {
-    await page.evaluate(() => { location.hash = ''; });
+    await goTo('#/materias/algebra');
     await page.waitForSelector('[data-final]');
     await page.click('[data-final="Álgebra"]');
     await page.waitForSelector('#exam-clock');
@@ -166,9 +183,9 @@ try {
     offline = true;
     await ctx.setOffline(true);
     await page.reload();
-    await page.evaluate(() => { location.hash = ''; }); // la recarga conserva la ruta; se vuelve al inicio
+    await goTo('#/materias/algebra'); // la recarga conserva la ruta; se va a una materia
     await page.waitForSelector('button[aria-label^="Practicar"]');
-    await page.click('button[aria-label^="Practicar"]');
+    await page.click('button[aria-label^="Practicar"] >> nth=0');
     await page.waitForSelector('.question .katex');
     await ctx.setOffline(false);
     offline = false;
@@ -198,19 +215,23 @@ try {
   try {
     await step('sin cobro: entra y ve "Cuenta", sin prueba ni precios', async () => {
       await p2.goto(open.url);
+      await p2.click('#tab-account');
       await p2.click('#account-chip');
       await p2.fill('#email-input', 'luis@correo.com');
       await p2.click('#send-link');
       await p2.waitForSelector('#dev-link');
       await p2.click('#dev-link');
-      await p2.waitForSelector('#account-chip:has-text("Cuenta")');
+      await p2.click('#tab-account');
+      await p2.waitForSelector('#account-plan:has-text("Acceso completo")');
       await p2.click('#plans-chip');
       const t = await p2.textContent('#pro-dialog');
       ok(/etapa de pruebas/.test(t) && !/\$|MXN/.test(t), 'el modal habla de precios');
       await p2.click('#close-pro');
     });
     await step('sin cobro: Peer Tutor, revisión de procedimiento y reporte funcionan', async () => {
-      await p2.click('button[aria-label^="Practicar"]');
+      await p2.click('#tab-subjects');
+      await p2.click('.subject-open >> nth=0');
+      await p2.click('button[aria-label^="Practicar"] >> nth=0');
       await p2.click('#tutor-btn');
       await p2.click('[data-mode="hint"]');
       await p2.waitForSelector('.bubble.bot:not(.typing) .katex');

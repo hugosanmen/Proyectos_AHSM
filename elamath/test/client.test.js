@@ -13,6 +13,7 @@ import { renderRichText } from '../js/richtext.js';
 import { routes } from '../server/routes.js';
 import { createRng } from '../js/engine/utils.js';
 import * as L from '../js/logic.js';
+import { makeSeek } from './nav.helpers.js';
 import { ADMIN, GROQ_ENV, TINY_JPEG_B64, loginAs, makeDeps, grantPro, tokenFromEmail } from './server.helpers.js';
 
 const html = readFileSync(fileURLToPath(new URL('../index.html', import.meta.url)), 'utf8');
@@ -160,7 +161,7 @@ async function mount({ deps, bridgeOpts, search = '', storage = memStorage(), no
   const app = await startApp(doc.getElementById('app'), { store: store ?? memStore(), api, now: nowFn ?? (() => NOW), random: () => rng.next(), prepareImage });
   await app.ready;
   await tick();
-  const q = (s) => doc.querySelector(s);
+  const q = makeSeek(doc, (v) => app.go(v));
   const click = async (el) => {
     assert.ok(el, 'elemento no encontrado');
     el.click();
@@ -192,7 +193,7 @@ describe('interfaz con backend', () => {
     await c.click(c.q('button[aria-label^="Practicar"]'));
     assert.equal(c.q('#tutor-btn'), null);
     assert.ok(c.q('#report-btn'), 'el reporte siempre existe');
-    assert.match(c.q('#plans-chip').textContent, /Planes/);
+    assert.match(c.q('#plans-chip').textContent, /Ver planes/);
   });
 
   it('con backend aparece "Entrar"; el enlace del correo inicia sesión y limpia la URL', async () => {
@@ -207,7 +208,7 @@ describe('interfaz con backend', () => {
     first.w.close();
 
     const second = await mount({ deps, search: `?login=${token}` });
-    assert.match(second.q('#account-chip').textContent, /Prueba · 30 d/, 'cuenta nueva = prueba gratis de 30 días');
+    assert.match(second.q('#account-plan').textContent, /Prueba · 30 d/, 'cuenta nueva = prueba gratis de 30 días');
     assert.equal(second.w.location.search, '', 'el token se quita de la barra de direcciones');
     assert.match(second.q('#toast').textContent, /Ya entraste/);
     assert.equal(second.app._account().email, 'ana@correo.com');
@@ -263,7 +264,7 @@ describe('interfaz con backend', () => {
     await grantPro(routes, deps, 'ana@correo.com');
     const again = await mount({ deps, storage: c.storage });
     await again.click(again.q('button[aria-label^="Practicar"]'));
-    assert.match(again.q('#account-chip').textContent, /Pro/);
+    assert.match(again.q('#account-plan').textContent, /Pro/);
     await again.click(again.q('#tutor-btn'));
     assert.ok(again.q('#tutor-input'), 'Pro: chat listo');
     assert.match(again.q('#tutor-quota').textContent, /40 de 40/);
@@ -380,8 +381,8 @@ describe('prueba gratis y planes en la interfaz', () => {
   it('cuenta nueva: HUD "Prueba · 30 d", precio $50, cómo pagar y formulario de código', async () => {
     const { deps, sent } = makeDeps({ env: { PAY_INSTRUCTIONS: 'Transfiere $50 a la CLABE 0123 y manda tu correo.' } });
     const c = await mountLoggedIn(deps, sent);
-    assert.match(c.q('#account-chip').textContent, /Prueba · 30 d/);
-    assert.match(c.q('#plans-chip').textContent, /40 mensajes hoy/);
+    assert.match(c.q('#account-plan').textContent, /Prueba · 30 d/);
+    assert.match(c.q('#tutor-left').textContent, /40 mensajes/);
     assert.equal(c.app.getState().plan, 'pro', 'durante la prueba se desbloquea todo');
     await c.click(c.q('#plans-chip'));
     const t = c.q('#pro-dialog').textContent;
@@ -400,7 +401,7 @@ describe('prueba gratis y planes en la interfaz', () => {
     await endTrial(deps);
     const f = await mount({ deps, storage: c.storage });
     assert.equal(f.app.getState().plan, 'free');
-    assert.match(f.q('#account-chip').textContent, /Cuenta/);
+    assert.match(f.q('#account-plan').textContent, /Gratis/);
     await f.click(f.q('button[aria-label^="Practicar"]'));
     await f.click(f.q('#tutor-btn'));
     assert.ok(f.q('#tutor-upgrade'));
@@ -442,7 +443,7 @@ describe('códigos de promoción en la interfaz', () => {
     await redeemUi(f, 'unam-30');
     assert.match(f.q('#promo-status').textContent, /Sumaste 30 días de Pro/);
     assert.match(f.q('#trial-status').textContent, /Tu Pro está activo hasta el/);
-    assert.match(f.q('#account-chip').textContent, /Pro/);
+    assert.match(f.q('#account-plan').textContent, /Pro/);
     assert.equal(f.app.getState().plan, 'pro');
     assert.equal(f.app._account().tutor.limit, 40);
     assert.equal(f.q('#pay-info'), null, 'ya es Pro: no pide pagar');
@@ -729,8 +730,8 @@ describe('etapa de pruebas en la interfaz (cobro apagado)', () => {
   it('tutor, escáner y exámenes abiertos; sin precio, prueba, pago ni códigos', async () => {
     const { deps, sent } = makeDeps({ env: { BILLING_ENABLED: '', ...GROQ_ENV } });
     const c = await mountLoggedIn(deps, sent);
-    assert.match(c.q('#account-chip').textContent, /Cuenta/);
-    assert.doesNotMatch(c.q('#account-chip').textContent, /Prueba/);
+    assert.match(c.q('#account-plan').textContent, /Acceso completo/);
+    assert.doesNotMatch(c.q('#account-plan').textContent, /Prueba/);
     assert.doesNotMatch(c.q('#plans-chip').textContent, /Pro/);
     assert.equal(c.app.getState().plan, 'pro');
     assert.equal(c.doc.body.textContent.includes('Ver plan Pro'), false);
@@ -827,13 +828,15 @@ describe('interfaz: textos y jerarquía', () => {
     const c = await mount({ deps, bridgeOpts: { absent: true } });
     await c.click(c.q('.topic .btn'));
     assert.equal(c.q('#q-title').tagName, 'H1');
-    assert.ok(c.q('#next-btn').classList.contains('btn-ghost'));
+    assert.ok(c.q('#next-btn').classList.contains('btn-link'));
     assert.match(c.q('.shortcuts').textContent, /N para el siguiente/);
     await c.click(c.q('.option[data-option="0"]'));
     assert.ok(c.q('#next-btn').classList.contains('btn-primary'));
     await c.click(c.q('.practice-head .btn'));
+    assert.match(c.q('main').textContent, /1 de 8 intentos para medir tu dominio/); // pantalla de la materia
+    c.app.go('home');
     assert.match(c.q('main').textContent, /aciertos? de 1 intento(?!s)/);
-    assert.match(c.q('main').textContent, /1 de 8 intentos para medir tu dominio/);
+    assert.match(c.q('#hud').textContent, /1 día(?!s)/);
   });
   it('el selector del escáner permite elegir de la galería', () => {
     assert.doesNotMatch(readFileSync(fileURLToPath(new URL('../js/app.js', import.meta.url)), 'utf8'), /capture:/);
@@ -885,7 +888,7 @@ describe('progreso en la cuenta', () => {
     const a = await mountLoggedIn(deps, sent);
     await practicar(a);
     await a.click(a.q('.practice-head .btn'));
-    await a.click([...a.doc.querySelectorAll('button')].find((b) => b.textContent === 'Reiniciar progreso'));
+    await a.click(a.q('#reset-btn'));
     await a.app._sync();
     assert.equal(a.app.getState().stats.answered, 0);
     a.app.destroy();

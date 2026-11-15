@@ -56,6 +56,26 @@ function progressBar(ratio, label) {
   return h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct, 'aria-label': label }, fill);
 }
 
+// Iconos de la barra de secciones: trazos SVG creados por DOM (sin HTML en línea, compatible con la CSP).
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ICONS = {
+  home: ['M3 11.5 12 4l9 7.5', 'M5.5 10v10h13V10', 'M10 20v-5h4v5'],
+  book: ['M6 3h13v15H6a2 2 0 0 0 0 4h13', 'M6 3a2 2 0 0 0-2 2v15', 'M9 8h6'],
+  exam: ['M9 3h6v4H9z', 'M9 5H5v16h14V5h-4', 'm9 14 2 2 4-4'],
+  user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 21a8 8 0 0 1 16 0'],
+};
+function icon(name) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  const attrs = { viewBox: '0 0 24 24', width: 24, height: 24, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon' };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, String(v));
+  for (const d of ICONS[name]) {
+    const p = document.createElementNS(SVG_NS, 'path');
+    p.setAttribute('d', d);
+    svg.append(p);
+  }
+  return svg;
+}
+
 const openDialog = (d) => {
   if (d.open) return;
   if (typeof d.showModal === 'function') d.showModal();
@@ -104,6 +124,7 @@ export async function startApp(root, opts = {}) {
   const nowMs = () => now().getTime();
   const ui = {
     search: '',
+    subjectId: null, // materia abierta en la pantalla «materia»
     account: { busy: false, sent: false, status: '', email: '', devLink: null },
     report: { busy: false, done: false, status: '', offline: false },
     promo: { busy: false, status: '', ok: false, code: '' },
@@ -147,16 +168,11 @@ export async function startApp(root, opts = {}) {
     if (!hud) return;
     const info = L.levelInfo(state.xp);
     const streak = L.currentStreak(state.streak, today());
-    const plansLabel = backend.available && !billingOn() ? 'Beneficios' : 'Planes'; // sin cobro no hay planes que elegir
-    const left = account?.tutor?.limit > 0 ? account.tutor.remaining : null; // la única cuota es la del tutor
-    const accountText = !account ? '👤 Entrar' : account.plan === 'pro' ? (account.founder ? '⭐ Fundador' : '⭐ Pro') : account.plan === 'trial' ? `🎁 Prueba · ${account.trial?.daysLeft ?? 0} d` : '👤 Cuenta';
+    // La cuenta y los beneficios viven en la sección «Cuenta»; la cabecera solo muestra el avance.
     put(
       hud,
-      h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nv. ${info.level}`),
-      h('span', { class: 'chip', 'aria-label': `Racha de ${streak} días` }, `🔥 ${streak}`),
-      h('button', { class: 'chip chip-btn', type: 'button', id: 'plans-chip', onclick: () => openPro('info'), 'aria-label': left === null ? `Ver ${plansLabel.toLowerCase()}` : `${left} mensajes del tutor hoy. Ver ${plansLabel.toLowerCase()}` }, left === null ? plansLabel : [`${left}`, h('span', { class: 'chip-long' }, ' mensajes'), ' hoy']),
-      backend.available &&
-        h('button', { class: 'chip chip-btn', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, accountText),
+      h('span', { class: 'chip', 'aria-label': `Nivel ${info.level}, ${info.title}` }, `Nivel ${info.level}`),
+      h('span', { class: 'chip', 'aria-label': `Racha de ${count(streak, 'día')}` }, `🔥 ${count(streak, 'día')}`),
     );
   }
 
@@ -202,6 +218,14 @@ export async function startApp(root, opts = {}) {
   const slug = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const subjects = CURRICULUM.flatMap((lvl) => lvl.subjects.map((s) => ({ ...s, level: lvl.level }))).filter((s) => s.available);
   const practiceRoute = (subject, topic) => `#/practica/${subject.id}${topic ? `/${slug(topic)}` : ''}`;
+  const subjectRoute = (subject) => `#/materias/${subject.id}`;
+  /** Las cuatro secciones de la barra inferior. */
+  const TABS = [
+    { view: 'home', route: '', label: 'Inicio', icon: 'home' },
+    { view: 'subjects', route: '#/materias', label: 'Materias', icon: 'book' },
+    { view: 'exams', route: '#/examenes', label: 'Exámenes', icon: 'exam' },
+    { view: 'account', route: '#/cuenta', label: 'Cuenta', icon: 'user' },
+  ];
 
   /** Rutas con # : funcionan sin configurar el servidor y también sin conexión. */
   function setRoute(route, { replace = false } = {}) {
@@ -227,6 +251,15 @@ export async function startApp(root, opts = {}) {
       return goHome({ replace: true });
     }
     if (examView?.result) examView = null;
+    const tab = TABS.find((t) => t.route && t.route === hash);
+    if (tab) return go(tab.view);
+    const sm = /^#\/materias\/([^/]+)$/.exec(hash);
+    if (sm) {
+      const found = subjects.find((s) => s.id === sm[1]);
+      if (!found) return openTab('subjects', { replace: true });
+      ui.subjectId = found.id;
+      return go('subject');
+    }
     const m = /^#\/practica\/([^/]+)(?:\/([^/]+))?$/.exec(hash);
     const subject = m && subjects.find((s) => s.id === m[1]);
     const topic = subject && m[2] ? subject.topics.find((t) => slug(t) === m[2]) : null;
@@ -235,10 +268,20 @@ export async function startApp(root, opts = {}) {
     startPractice(subject, topic, { push: false });
   }
 
-  function goHome(opts) {
-    setRoute('', opts);
-    go('home');
+  function openTab(name, opts) {
+    setRoute(TABS.find((t) => t.view === name).route, opts);
+    go(name);
   }
+
+  const goHome = (opts) => openTab('home', opts);
+
+  function openSubject(subject, opts) {
+    ui.subjectId = subject.id;
+    setRoute(subjectRoute(subject), opts);
+    go('subject');
+  }
+
+  const currentSubject = () => subjects.find((s) => s.id === ui.subjectId) ?? null;
 
   function go(name) {
     view = name;
@@ -249,16 +292,52 @@ export async function startApp(root, opts = {}) {
 
   function render() {
     if (view !== 'exam') stopExamTimer();
-    if (view === 'exam' && examView) renderExam();
-    else if (view === 'practice' && practice) renderPractice();
+    // Pantalla que de verdad se puede dibujar (p. ej. «práctica» sin ejercicio cae en Inicio).
+    const shown =
+      view === 'exam' ? (examView ? 'exam' : 'home')
+      : view === 'practice' ? (practice ? 'practice' : 'home')
+      : view === 'subject' ? (currentSubject() ? 'subject' : 'subjects')
+      : TABS.some((t) => t.view === view) ? view : 'home';
+    if (shown === 'exam') renderExam();
+    else if (shown === 'practice') renderPractice();
+    else if (shown === 'subject') renderSubject();
+    else if (shown === 'subjects') renderSubjects();
+    else if (shown === 'exams') renderExams();
+    else if (shown === 'account') renderAccountView();
     else renderHome();
-    document.title = view === 'exam' && examView ? 'Examen simulado · ElaMath' : view === 'practice' && practice ? `${practice.label} · ElaMath` : 'ElaMath · Matemáticas para Ingeniería';
+    const titles = { exam: 'Examen simulado', practice: practice?.label, subject: currentSubject()?.name, subjects: 'Materias', exams: 'Exámenes', account: 'Cuenta' };
+    document.title = titles[shown] ? `${titles[shown]} · ElaMath` : 'ElaMath · Matemáticas para Ingeniería';
+    if (document.body) document.body.dataset.view = shown;
     renderHud();
+    renderTabbar(shown);
   }
+
+  /** Barra inferior. Se oculta en práctica y examen para no salir por accidente. */
+  function renderTabbar(shown) {
+    const bar = $('tabbar');
+    if (!bar) return;
+    bar.hidden = shown === 'practice' || shown === 'exam';
+    if (bar.hidden) return;
+    const active = shown === 'subject' ? 'subjects' : shown;
+    put(
+      bar,
+      TABS.map((t) => h('button', { class: 'tab', type: 'button', id: `tab-${t.view}`, 'aria-current': t.view === active ? 'page' : null, onclick: () => openTab(t.view) }, icon(t.icon), h('span', {}, t.label))),
+    );
+  }
+
+  /** Renglón grande que lleva a otra parte de la app. */
+  const navRow = (id, title, sub, onclick) =>
+    h('button', { class: 'nav-row', type: 'button', id, onclick }, h('span', { class: 'nav-row-text' }, h('strong', {}, title), h('span', { class: 'muted small' }, sub)), h('span', { class: 'chev', 'aria-hidden': 'true' }, '›'));
+
+  const scanAvailable = () => backend.available && backend.scan !== false;
 
   // ── Inicio ────────────────────────────────────────────────────
   function renderHome() {
+    const welcoming = !state.welcomed && state.stats.answered === 0 && state.xp === 0;
+    if (welcoming) return put(root, welcomeCard());
+
     const info = L.levelInfo(state.xp);
+    const streak = L.currentStreak(state.streak, today());
     const lastTarget = lastPracticeTarget();
     const hero = h(
       'section',
@@ -268,13 +347,28 @@ export async function startApp(root, opts = {}) {
       progressBar(info.progress, 'Progreso hacia el siguiente nivel'),
       h('p', { class: 'muted' }, info.isMax ? 'Nivel máximo alcanzado.' : `${info.xpInto} / ${info.xpNeeded} XP para el siguiente nivel`),
       h('p', { class: 'muted small' }, `${count(state.stats.correct, 'acierto')} de ${count(state.stats.answered, 'intento')}`),
+      h('p', { class: 'muted small', id: 'streak-line' }, streak > 0 ? `🔥 Racha: ${count(streak, 'día')} ${streak === 1 ? 'practicando' : 'seguidos practicando'}` : 'Responde un ejercicio hoy para empezar tu racha.'),
       state.exams.length ? h('p', { class: 'muted small', id: 'last-exam' }, `Último examen simulado: ${state.exams.at(-1).score.toFixed(1)} / 10 (${state.exams.at(-1).label})`) : null,
-      lastTarget ? h('button', { class: 'btn btn-primary', type: 'button', id: 'continue-btn', onclick: () => startPractice(lastTarget.subject, lastTarget.topic) }, `Continuar: ${lastTarget.topic ?? lastTarget.subject.name}`) : null,
+      lastTarget
+        ? h('button', { class: 'btn btn-primary btn-block', type: 'button', id: 'continue-btn', onclick: () => startPractice(lastTarget.subject, lastTarget.topic) }, `Continuar: ${lastTarget.topic ?? lastTarget.subject.name}`)
+        : h('button', { class: 'btn btn-primary btn-block', type: 'button', id: 'start-btn', onclick: () => openTab('subjects') }, 'Elegir una materia'),
     );
 
-    const welcoming = !state.welcomed && state.stats.answered === 0 && state.xp === 0;
-    const last = lastPracticeTarget();
-    const openLevel = state.homeLevel ?? last?.subject.level ?? 1;
+    const shortcuts = h(
+      'section',
+      { class: 'card nav-card', 'aria-labelledby': 'shortcuts-title' },
+      h('h2', { id: 'shortcuts-title' }, '¿Qué quieres hacer?'),
+      navRow('home-subjects', 'Practicar por tema', 'Elige una materia de tu semestre', () => openTab('subjects')),
+      navRow('home-exams', 'Hacer un examen simulado', `${X.EXAM_QUESTIONS} preguntas en ${X.EXAM_MINUTES} minutos`, () => openTab('exams')),
+      scanAvailable() ? navRow('scan-open', 'Revisar mi procedimiento', 'Toma una foto de tus apuntes', openScan) : null,
+    );
+
+    put(root, hero, reviewCard(L.weakTopics(state.topics)), shortcuts);
+  }
+
+  // ── Materias ──────────────────────────────────────────────────
+  function renderSubjects() {
+    const openLevel = state.homeLevel ?? lastPracticeTarget()?.subject.level ?? 1;
     const levelSelect = h('select', { id: 'home-level', 'aria-label': 'Mi semestre', onchange: () => setHomeLevel(Number(levelSelect.value)) }, CURRICULUM.map((lvl) => h('option', { value: lvl.level }, `${lvl.semesters} (Nivel ${lvl.level})`)));
     levelSelect.value = String(openLevel);
     const search = h('input', { type: 'search', id: 'home-search', placeholder: 'Buscar materia o tema', 'aria-label': 'Buscar materia o tema', autocomplete: 'off', oninput: () => applySearch(search.value) });
@@ -282,28 +376,17 @@ export async function startApp(root, opts = {}) {
     const tools = h('div', { class: 'home-tools' }, search, levelSelect);
 
     const sections = CURRICULUM.map((lvl) => {
-      const cards = lvl.subjects.map(subjectCard);
-      const nTopics = lvl.subjects.filter((x) => x.available).length;
+      const nSubjects = lvl.subjects.filter((x) => x.available).length;
       return h(
         'details',
         { class: 'level', 'data-level': lvl.level, open: lvl.level === openLevel },
-        h('summary', {}, h('span', { class: 'level-title' }, `Nivel ${lvl.level} · ${lvl.name}`), h('span', { class: 'muted small' }, ` ${lvl.semesters} · ${nTopics} ${nTopics === 1 ? 'materia' : 'materias'}`)),
-        h('div', { class: 'grid' }, cards),
+        h('summary', {}, h('span', { class: 'level-title' }, `Nivel ${lvl.level} · ${lvl.name}`), h('span', { class: 'muted small' }, ` ${lvl.semesters} · ${nSubjects} ${nSubjects === 1 ? 'materia' : 'materias'}`)),
+        h('div', { class: 'subject-list' }, lvl.subjects.map(subjectCard)),
       );
     });
     const noResults = h('p', { class: 'muted', id: 'search-empty', hidden: true }, 'No encontramos esa materia o tema. Prueba con otra palabra.');
 
-    const planLabel = state.plan === 'pro' ? (backend.available ? `Mi plan: ${planName()}` : 'Mi plan: Pro (demo)') : backend.available && !billingOn() ? 'Qué incluye tu cuenta gratis' : 'Ver plan Pro';
-    const showPlanBtn = !(backend.available && account && !billingOn()); // sin cobro no hay plan que mostrar
-    const footer = h(
-      'div',
-      { class: 'home-actions' },
-      backend.available && backend.scan !== false ? h('button', { class: 'btn btn-ghost', type: 'button', id: 'scan-open', onclick: openScan }, '📷 Escáner de apuntes') : null,
-      showPlanBtn ? h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => openPro('info') }, planLabel) : null,
-      h('button', { class: 'btn btn-ghost danger', type: 'button', onclick: resetProgress }, 'Reiniciar progreso'),
-    );
-
-    put(root, welcoming ? welcomeCard() : hero, welcoming ? null : reviewCard(L.weakTopics(state.topics)), tools, noResults, ...sections, footer);
+    put(root, h('h1', { class: 'page-title' }, 'Materias'), tools, noResults, ...sections);
     if (ui.search) applySearch(ui.search);
   }
 
@@ -340,7 +423,7 @@ export async function startApp(root, opts = {}) {
       h('p', {}, 'Practica las matemáticas de Ingeniería con ejercicios que cambian cada vez, paso a paso incluido. Funciona sin conexión.'),
       h('p', { class: 'welcome-ask' }, h('strong', {}, '¿En qué semestre vas?'), ' Te llevamos a tu primer ejercicio.'),
       h('div', { class: 'welcome-levels' }, CURRICULUM.map((lvl) => h('button', { class: 'btn', type: 'button', id: `welcome-level-${lvl.level}`, onclick: () => chooseLevel(lvl.level) }, lvl.semesters))),
-      h('button', { class: 'btn btn-ghost', type: 'button', id: 'welcome-skip', onclick: () => { state = { ...state, welcomed: true }; persist(); render(); } }, 'Prefiero ver las materias'),
+      h('button', { class: 'btn btn-ghost', type: 'button', id: 'welcome-skip', onclick: () => { state = { ...state, welcomed: true }; persist(); openTab('subjects'); } }, 'Prefiero ver las materias'),
     );
   }
 
@@ -379,6 +462,9 @@ export async function startApp(root, opts = {}) {
           li.hidden = !hit;
           if (hit) rows++;
         }
+        const list = card.querySelector('.topics');
+        if (!list) rows = q ? 0 : 1; // «Próximamente»: sin temas, solo se ve cuando no se busca nada
+        else list.hidden = !q || byName; // los temas se despliegan solo cuando la búsqueda coincide con alguno
         card.hidden = rows === 0;
         if (rows) inLevel++;
       }
@@ -391,43 +477,154 @@ export async function startApp(root, opts = {}) {
     if (empty) empty.hidden = found > 0;
   }
 
+  function topicRow(subject, topic) {
+    const recent = state.topics[topic]?.recent ?? [];
+    const measured = recent.length >= L.MASTERY_MIN_ATTEMPTS;
+    const ratio = L.masteryShown(recent);
+    const label = recent.length === 0 ? 'Sin intentos' : measured ? `Dominio ${Math.round(ratio * 100)}%${L.isMastered(recent) ? ' · ¡Dominado!' : ''}` : `${recent.length} de ${L.MASTERY_MIN_ATTEMPTS} intentos para medir tu dominio`;
+    return h(
+      'li',
+      { class: 'topic' },
+      h('div', { class: 'topic-main' }, h('span', { class: 'topic-name' }, topic), h('span', { class: 'muted small' }, label)),
+      progressBar(ratio, `Dominio de ${topic}`),
+      h('button', { class: 'btn', type: 'button', 'aria-label': `Practicar ${topic}`, onclick: () => startPractice(subject, topic) }, 'Practicar'),
+    );
+  }
+
+  const subjectBlurb = (subject) =>
+    subject.mixed ? `Mezcla de temas de otras materias${subject.minDifficulty ? ' · solo ejercicios retadores' : ''}` : `${templates.filter((t) => subject.topics.includes(t.topic)).length} tipos de ejercicio, siempre con datos nuevos`;
+
+  /** Avance de la materia: promedio del dominio visible de sus temas. */
+  const subjectProgress = (subject) => subject.topics.reduce((sum, t) => sum + L.masteryShown(state.topics[t]?.recent ?? []), 0) / Math.max(subject.topics.length, 1);
+
+  /** Renglón de la lista de materias: abre la pantalla de la materia. Sus temas solo se muestran al buscar. */
   function subjectCard(subject) {
     if (!subject.available) {
       return h('article', { class: 'card subject disabled' }, h('h3', {}, subject.name), h('p', { class: 'muted small' }, 'Próximamente'));
     }
-    const rows = subject.topics.map((topic) => {
-      const recent = state.topics[topic]?.recent ?? [];
-      const measured = recent.length >= L.MASTERY_MIN_ATTEMPTS;
-      const ratio = L.masteryShown(recent);
-      const label = recent.length === 0 ? 'Sin intentos' : measured ? `Dominio ${Math.round(ratio * 100)}%${L.isMastered(recent) ? ' · ¡Dominado!' : ''}` : `${recent.length} de ${L.MASTERY_MIN_ATTEMPTS} intentos para medir tu dominio`;
-      return h(
-        'li',
-        { class: 'topic' },
-        h('div', { class: 'topic-main' }, h('span', { class: 'topic-name' }, topic), h('span', { class: 'muted small' }, label)),
-        progressBar(ratio, `Dominio de ${topic}`),
-        h('button', { class: 'btn', type: 'button', 'aria-label': `Practicar ${topic}`, onclick: () => startPractice(subject, topic) }, 'Practicar'),
-      );
-    });
     return h(
       'article',
-      { class: 'card subject' },
-      h('h3', {}, subject.name),
-      h('p', { class: 'muted small' }, subject.mixed ? `Mezcla de temas de otras materias${subject.minDifficulty ? ' · solo ejercicios retadores' : ''}` : `${templates.filter((t) => subject.topics.includes(t.topic)).length} tipos de ejercicio, siempre con datos nuevos`),
-      h('ul', { class: 'topics' }, rows),
+      { class: 'card subject', 'data-subject': subject.id },
       h(
         'div',
-        { class: 'actions' },
-        h('button', { class: 'btn btn-primary', type: 'button', onclick: () => startPractice(subject) }, 'Práctica mixta'),
-        h('button', { class: 'btn', type: 'button', 'data-exam': subject.name, onclick: () => startExamFlow(subject.topics, subject.name, subject.minDifficulty) }, '📝 Examen simulado'),
-        subject.final
-          ? h(
-              'button',
-              { class: 'btn', type: 'button', 'data-final': subject.name, title: `${X.finalPlan(subject.final).length} reactivos con el peso de temas del examen final · ${subject.final.minutes} min`, onclick: () => startFinalFlow(subject) },
-              '🎓 Simulacro tipo final',
-            )
-          : null,
+        { class: 'subject-head' },
+        h('div', { class: 'subject-info' }, h('h3', {}, h('button', { class: 'subject-open', type: 'button', onclick: () => openSubject(subject) }, subject.name)), h('p', { class: 'muted small' }, `${count(subject.topics.length, 'tema')} · ${subjectBlurb(subject)}`)),
+        h('span', { class: 'chev', 'aria-hidden': 'true' }, '›'),
+      ),
+      progressBar(subjectProgress(subject), `Avance en ${subject.name}`),
+      h('ul', { class: 'topics', hidden: true }, subject.topics.map((t) => topicRow(subject, t))),
+    );
+  }
+
+  /** Pantalla de una materia: sus temas, la práctica mixta y sus exámenes. */
+  function renderSubject() {
+    const subject = currentSubject();
+    const lvl = CURRICULUM.find((l) => l.level === subject.level);
+    put(
+      root,
+      h('div', { class: 'practice-head' }, h('button', { class: 'btn btn-ghost', type: 'button', id: 'subject-back', onclick: () => openTab('subjects') }, '← Materias'), h('p', { class: 'eyebrow' }, lvl.semesters)),
+      h(
+        'section',
+        { class: 'card hero subject-detail', 'aria-labelledby': 'subject-title' },
+        h('h1', { id: 'subject-title' }, subject.name),
+        h('p', { class: 'muted small' }, subjectBlurb(subject)),
+        progressBar(subjectProgress(subject), `Avance en ${subject.name}`),
+        h('div', { class: 'actions' }, h('button', { class: 'btn btn-primary', type: 'button', id: 'mixed-btn', onclick: () => startPractice(subject) }, 'Práctica mixta'), examButtons(subject)),
+      ),
+      h('h2', { class: 'section-title', id: 'topics-title' }, 'Temas'),
+      h('section', { class: 'card', 'aria-labelledby': 'topics-title' }, h('ul', { class: 'topics' }, subject.topics.map((t) => topicRow(subject, t)))),
+    );
+  }
+
+  /** Botones de examen de una materia (se usan en su pantalla y en la sección Exámenes). */
+  function examButtons(subject) {
+    return [
+      h('button', { class: 'btn', type: 'button', 'data-exam': subject.name, 'aria-label': `Examen simulado de ${subject.name}`, onclick: () => startExamFlow(subject.topics, subject.name, subject.minDifficulty) }, 'Examen simulado'),
+      subject.final
+        ? h(
+            'button',
+            { class: 'btn', type: 'button', 'data-final': subject.name, 'aria-label': `Simulacro tipo final de ${subject.name}`, title: `${X.finalPlan(subject.final).length} reactivos con el peso de temas del examen final · ${subject.final.minutes} min`, onclick: () => startFinalFlow(subject) },
+            'Simulacro tipo final',
+          )
+        : null,
+    ];
+  }
+
+  // ── Exámenes ──────────────────────────────────────────────────
+  function renderExams() {
+    const openLevel = state.homeLevel ?? lastPracticeTarget()?.subject.level ?? 1;
+    const sections = CURRICULUM.filter((lvl) => lvl.subjects.some((s) => s.available)).map((lvl) =>
+      h(
+        'details',
+        { class: 'level', 'data-level': lvl.level, open: lvl.level === openLevel },
+        h('summary', {}, h('span', { class: 'level-title' }, `Nivel ${lvl.level} · ${lvl.name}`), h('span', { class: 'muted small' }, ` ${lvl.semesters}`)),
+        h(
+          'ul',
+          { class: 'card exam-list' },
+          subjects.filter((s) => s.level === lvl.level).map((s) => h('li', { class: 'exam-row' }, h('span', { class: 'topic-name' }, s.name), h('div', { class: 'exam-buttons' }, examButtons(s)))),
+        ),
       ),
     );
+    const history = state.exams.length
+      ? h(
+          'ul',
+          { class: 'card exam-history', id: 'exam-history' },
+          [...state.exams].reverse().map((e) =>
+            h('li', { class: 'exam-row' }, h('span', {}, h('span', { class: 'topic-name' }, e.label), h('span', { class: 'muted small' }, ` · ${fmtDate(`${e.at}T12:00:00`)} · ${e.correct} de ${e.total} correctas`)), h('strong', { class: e.score >= X.EXAM_PASS ? 'score ok' : 'score bad' }, `${e.score.toFixed(1)} / 10`)),
+          ),
+        )
+      : h('p', { class: 'muted', id: 'exam-history-empty' }, 'Todavía no has hecho ningún examen. Tus calificaciones aparecerán aquí.');
+    put(
+      root,
+      h('h1', { class: 'page-title' }, 'Exámenes'),
+      h('p', { class: 'muted' }, `Examen simulado: ${X.EXAM_QUESTIONS} preguntas en ${X.EXAM_MINUTES} minutos, sin retroalimentación hasta el final. Apruebas con ${X.EXAM_PASS} de 10.`),
+      ...sections,
+      h('h2', { class: 'section-title' }, 'Tus calificaciones'),
+      history,
+    );
+  }
+
+  // ── Cuenta ────────────────────────────────────────────────────
+  function renderAccountView() {
+    const info = L.levelInfo(state.xp);
+    const streak = L.currentStreak(state.streak, today());
+    const plansLabel = backend.available && !billingOn() ? 'beneficios' : 'planes'; // sin cobro no hay planes que elegir
+    const left = account?.tutor?.limit > 0 ? account.tutor.remaining : null; // la única cuota es la del tutor
+
+    const session = backend.available
+      ? h(
+          'section',
+          { class: 'card', 'aria-labelledby': 'session-title' },
+          h('h2', { id: 'session-title' }, 'Tu sesión'),
+          account
+            ? h('p', {}, h('strong', {}, account.email), ' ', h('span', { class: 'tag', id: 'account-plan' }, account.plan === 'trial' ? `Prueba · ${account.trial?.daysLeft ?? 0} d` : planName()))
+            : h('p', { class: 'muted' }, 'Entra con tu correo, sin contraseña, para guardar tu progreso y usar el Peer Tutor.'),
+          h('button', { class: account ? 'btn' : 'btn btn-primary', type: 'button', id: 'account-chip', onclick: openAccount, 'aria-label': account ? `Mi cuenta (${account.email})` : 'Iniciar sesión' }, account ? 'Ver mi cuenta' : 'Entrar con mi correo'),
+        )
+      : null;
+
+    const plan = h(
+      'section',
+      { class: 'card', 'aria-labelledby': 'plan-title' },
+      h('h2', { id: 'plan-title' }, plansLabel === 'beneficios' ? 'Beneficios' : 'Planes'),
+      left === null ? null : h('p', { id: 'tutor-left' }, `Te quedan ${count(left, 'mensaje')} del Peer Tutor hoy.`),
+      h('button', { class: 'btn', type: 'button', id: 'plans-chip', onclick: () => openPro('info'), 'aria-label': left === null ? `Ver ${plansLabel}` : `${left} mensajes del tutor hoy. Ver ${plansLabel}` }, `Ver ${plansLabel}`),
+    );
+
+    const tools = scanAvailable()
+      ? h('section', { class: 'card nav-card', 'aria-labelledby': 'tools-title' }, h('h2', { id: 'tools-title' }, 'Herramientas'), navRow('scan-open', 'Escáner de apuntes', 'Toma una foto de tu procedimiento y recibe una pista', openScan))
+      : null;
+
+    const progress = h(
+      'section',
+      { class: 'card', 'aria-labelledby': 'progress-title' },
+      h('h2', { id: 'progress-title' }, 'Tu progreso'),
+      h('p', {}, `Nivel ${info.level} · ${info.title}`),
+      h('p', { class: 'muted small' }, `${count(state.stats.correct, 'acierto')} de ${count(state.stats.answered, 'intento')} · racha de ${count(streak, 'día')}`),
+      h('button', { class: 'btn btn-ghost danger', type: 'button', id: 'reset-btn', onclick: resetProgress }, 'Reiniciar progreso'),
+    );
+
+    put(root, h('h1', { class: 'page-title' }, 'Cuenta'), session, plan, tools, progress);
   }
 
   function resetProgress() {
@@ -445,7 +642,7 @@ export async function startApp(root, opts = {}) {
     if (push) setRoute(route);
     state = { ...state, welcomed: true, lastPractice: { subjectId: subject.id, topic } };
     persist();
-    practice = { route, topics: topic ? [topic] : subject.topics, label: topic ?? subject.name, minDifficulty: subject.minDifficulty, recent: [], ex: null, answered: false, picked: null, explained: false, result: null, chat: null };
+    practice = { route, subjectId: subject.id, topics: topic ? [topic] : subject.topics, label: topic ?? subject.name, minDifficulty: subject.minDifficulty, recent: [], ex: null, answered: false, picked: null, explained: false, result: null, chat: null };
     nextExercise();
   }
 
@@ -497,13 +694,23 @@ export async function startApp(root, opts = {}) {
         : h('div', { class: 'feedback bad', id: 'feedback', role: 'status', tabindex: '-1' }, h('strong', {}, 'Mmm, esa no era. '), h('span', {}, picked.feedback), h('span', {}, ' La respuesta correcta quedó marcada.'), ideaLine(ex));
     }
 
+    // Ayudas: el paso a paso es la principal; el tutor y el escáner la acompañan.
     const explainBtn = practice.explained
       ? null
-      : h('button', { class: 'btn', type: 'button', id: 'explain-btn', onclick: explain }, 'Ver paso a paso');
+      : h('button', { class: 'btn btn-help', type: 'button', id: 'explain-btn', onclick: explain }, 'Ver paso a paso');
     const tutorBtn = backend.available ? h('button', { class: 'btn', type: 'button', id: 'tutor-btn', onclick: openTutor }, '💬 Peer Tutor') : null;
-    const scanBtn = backend.available && backend.scan !== false ? h('button', { class: 'btn', type: 'button', id: 'scan-btn', onclick: openScan }, '📷 Revisar mi procedimiento') : null;
-    const nextBtn = h('button', { class: answered ? 'btn btn-primary' : 'btn btn-ghost', type: 'button', id: 'next-btn', onclick: nextExercise }, answered ? 'Siguiente ejercicio' : 'Saltar ejercicio');
-    const reportBtn = h('button', { class: 'btn btn-ghost btn-small-ghost', type: 'button', id: 'report-btn', onclick: openReport }, '⚑ Reportar error');
+    const scanBtn = scanAvailable() ? h('button', { class: 'btn', type: 'button', id: 'scan-btn', onclick: openScan }, '📷 Revisar mi procedimiento') : null;
+    const help =
+      explainBtn || tutorBtn || scanBtn
+        ? h('section', { class: 'help', 'aria-labelledby': 'help-title' }, h('h2', { class: 'help-title', id: 'help-title' }, answered ? '¿Quieres entenderlo mejor?' : '¿Te atoraste?'), h('div', { class: 'actions' }, explainBtn, tutorBtn, scanBtn))
+        : null;
+    // Sin responder, «Saltar» es un enlace discreto; al responder, «Siguiente» queda fijo abajo junto al resultado.
+    const nextBtn = h('button', { class: answered ? 'btn btn-primary' : 'btn-link', type: 'button', id: 'next-btn', onclick: nextExercise }, answered ? 'Siguiente ejercicio' : 'Saltar ejercicio');
+    const reportBtn = h('button', { class: 'btn-link', type: 'button', id: 'report-btn', onclick: openReport }, '⚑ Reportar error');
+    const answerBar = answered
+      ? h('div', { class: `answer-bar ${practice.result.correct ? 'ok' : 'bad'}`, id: 'answer-bar' }, h('strong', { class: 'answer-verdict' }, practice.result.correct ? '✓ Correcto' : '✗ Incorrecto'), nextBtn)
+      : null;
+    const subject = subjects.find((s) => s.id === practice.subjectId);
 
     const explanation = practice.explained
       ? h(
@@ -517,7 +724,12 @@ export async function startApp(root, opts = {}) {
 
     put(
       root,
-      h('div', { class: 'practice-head' }, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => goHome() }, '← Materias'), h('p', { class: 'eyebrow' }, practice.label)),
+      h(
+        'div',
+        { class: 'practice-head' },
+        h('button', { class: 'btn btn-ghost', type: 'button', id: 'practice-back', onclick: () => (subject ? openSubject(subject) : openTab('subjects')) }, `← ${subject?.name ?? 'Materias'}`),
+        h('p', { class: 'eyebrow' }, practice.label),
+      ),
       h(
         'section',
         { class: 'card question', 'aria-labelledby': 'q-title' },
@@ -528,8 +740,10 @@ export async function startApp(root, opts = {}) {
       h('div', { class: 'options', role: 'group', 'aria-label': 'Opciones de respuesta (atajos: teclas 1 a 4)' }, options),
       h('p', { class: 'muted small shortcuts' }, 'Atajos: 1 a 4 para responder · N para el siguiente'),
       feedback,
-      h('div', { class: 'actions' }, explainBtn, tutorBtn, scanBtn, nextBtn, reportBtn),
+      help,
       explanation,
+      h('div', { class: 'minor-actions' }, answered ? null : nextBtn, reportBtn),
+      answerBar,
     );
   }
 
@@ -543,7 +757,9 @@ export async function startApp(root, opts = {}) {
     persist();
     Object.assign(practice, { answered: true, picked: idx, result: { correct: opt.correct, xpGained: res.xpGained, helped } });
     render();
-    root.querySelector('#feedback')?.focus({ preventScroll: true });
+    const fb = root.querySelector('#feedback');
+    fb?.focus({ preventScroll: true });
+    fb?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); // en celular la explicación queda bajo las opciones
     if (res.leveledUp) showLevelUp(res.level);
   }
 
@@ -551,6 +767,7 @@ export async function startApp(root, opts = {}) {
     if (!practice || practice.explained) return;
     practice.explained = true;
     render();
+    root.querySelector('.explain')?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
   }
 
   // ── Plan Pro, prueba gratis y códigos de promoción ───────────
@@ -1264,7 +1481,7 @@ export async function startApp(root, opts = {}) {
   function leaveExam() {
     if (examView && !examView.result && !globalThis.confirm?.('¿Abandonar el examen? No se guardará ningún resultado.')) return;
     discardExam();
-    goHome();
+    openTab('exams');
   }
 
   function discardExam() {
@@ -1356,7 +1573,7 @@ export async function startApp(root, opts = {}) {
         'div',
         { class: 'actions' },
         h('button', { class: 'btn btn-primary', type: 'button', id: 'exam-again', onclick: () => startExamFlow(exam.topics, exam.label, examView.minDifficulty, exam.plan ? { plan: exam.plan, minutes: exam.minutes } : null) }, exam.plan ? 'Otro simulacro' : 'Otro examen'),
-        h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-home', onclick: () => { examView = null; goHome(); } }, '← Materias'),
+        h('button', { class: 'btn btn-ghost', type: 'button', id: 'exam-home', onclick: () => { examView = null; openTab('exams'); } }, '← Exámenes'),
       ),
     );
   }
