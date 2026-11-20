@@ -403,3 +403,5 @@ body:not([data-view]) .site-footer, body[data-view="home"] .site-footer, body[da
 .answer-bar.ok .answer-verdict { color: var(--ok); }
 .answer-bar.bad .answer-verdict { color: var(--bad); }
 .exam-list .exam-row { display: grid; justify-content: stretch; }
+/* Al desplazarse hacia la retroalimentación o el paso a paso, que no queden bajo la franja fija del resultado. */
+#feedback, .explain { scroll-margin-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
